@@ -358,6 +358,40 @@ OPENAI_API_BASE_URL = 'https://api.openai.com/v1'
 
 
 ####################################
+# UPBOT_API
+#
+# upbot is a single fixed backend, not a multi-connection provider list,
+# so this stays env-var-only for now instead of the DB-backed Connections
+# pattern OpenAI/Ollama use.
+####################################
+
+ENABLE_UPBOT_API = os.getenv('ENABLE_UPBOT_API', 'False').lower() == 'true'
+
+UPBOT_BASE_URL = os.getenv('UPBOT_BASE_URL', '')
+if UPBOT_BASE_URL.endswith('/'):
+    UPBOT_BASE_URL = UPBOT_BASE_URL[:-1]
+
+# JSON object mapping upbot channel name -> X-Api-Key, e.g.
+# '{"chat": "...", "labexa": "..."}'. One model is exposed per key present.
+UPBOT_API_KEYS = {}
+_upbot_api_keys = os.getenv('UPBOT_API_KEYS', '')
+if _upbot_api_keys:
+    try:
+        parsed = json.loads(_upbot_api_keys)
+        if isinstance(parsed, dict):
+            UPBOT_API_KEYS = parsed
+        else:
+            log.warning('UPBOT_API_KEYS must be a JSON object, ignoring')
+    except (json.JSONDecodeError, TypeError):
+        log.warning('UPBOT_API_KEYS is not valid JSON, ignoring')
+
+# Placeholder until UPB's auth endpoint exists to resolve a real per-user
+# user_code. Base64-encoded, sent as-is on every request to the "chat"
+# channel.
+UPBOT_USER_ID = os.getenv('UPBOT_USER_ID', '')
+
+
+####################################
 # MODELS
 ####################################
 

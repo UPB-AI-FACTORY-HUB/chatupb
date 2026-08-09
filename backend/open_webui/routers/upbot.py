@@ -1,0 +1,219 @@
+"""Reverse-proxy router for upbot.
+
+upbot exposes a bespoke {message, session_id, user_id} / SSE contract, not
+an OpenAI-compatible API, so this translates in both directions instead of
+being a thin passthrough like routers/ollama.py or routers/openai.py.
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+
+import aiohttp
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
+
+from open_webui.config import UPBOT_API_KEYS, UPBOT_BASE_URL, UPBOT_USER_ID, ENABLE_UPBOT_API
+from open_webui.env import AIOHTTP_CLIENT_SESSION_SSL
+from open_webui.models.users import UserModel
+from open_webui.utils.json_codec import JSONCodec
+from open_webui.utils.misc import (
+    openai_chat_chunk_message_template,
+    openai_chat_completion_message_template,
+)
+from open_webui.utils.session_pool import cleanup_response, get_client_timeout, get_session
+
+log = logging.getLogger(__name__)
+
+router = APIRouter()
+
+MODEL_ID_PREFIX = 'upbot-'
+
+# upbot has no durable session store of its own - its session_id lives
+# only in this process's memory, keyed by open-webui chat_id, until a real
+# persistence layer (e.g. Chat.meta) replaces this. Lost on restart, same
+# volatility as upbot's own in-memory sessions.
+_SESSIONS: dict[str, str] = {}
+
+
+def model_id_to_channel(model_id: str) -> str:
+    return model_id[len(MODEL_ID_PREFIX):] if model_id.startswith(MODEL_ID_PREFIX) else model_id
+
+
+def channel_to_model_id(channel: str) -> str:
+    return f'{MODEL_ID_PREFIX}{channel}'
+
+
+@router.get('/')
+@router.head('/')
+async def get_status() -> dict:
+    return {'status': bool(ENABLE_UPBOT_API and UPBOT_BASE_URL)}
+
+
+async def get_all_models(request: Request, user: UserModel = None) -> list[dict]:
+    """One synthetic model per configured upbot channel/API key."""
+    if not (ENABLE_UPBOT_API and UPBOT_BASE_URL):
+        return []
+    return [
+        {
+            'id': channel_to_model_id(channel),
+            'name': f'upbot ({channel})',
+            'object': 'model',
+            'created': 0,
+            'owned_by': 'upbot',
+            'upbot': {'channel': channel},
+        }
+        for channel in UPBOT_API_KEYS
+    ]
+
+
+def _extract_last_user_message(messages: list[dict]) -> str:
+    for message in reversed(messages):
+        if message.get('role') != 'user':
+            continue
+        content = message.get('content')
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return ''.join(part.get('text', '') for part in content if part.get('type') == 'text')
+    return ''
+
+
+def convert_payload_openai_to_upbot(form_data: dict, chat_id: str | None) -> dict:
+    payload = {'message': _extract_last_user_message(form_data.get('messages', []))}
+
+    session_id = _SESSIONS.get(chat_id) if chat_id else None
+    if session_id:
+        payload['session_id'] = session_id
+
+    if UPBOT_USER_ID:
+        payload['user_id'] = UPBOT_USER_ID
+
+    return payload
+
+
+def convert_response_upbot_to_openai(model_id: str, upbot_response: dict) -> dict:
+    # upbot's non-streaming /chat never returns generated PDF/Excel files,
+    # only /chat/stream does - nothing to carry over here even if a tool ran.
+    return openai_chat_completion_message_template(model_id, upbot_response.get('reply', ''))
+
+
+async def convert_streaming_response_upbot_to_openai(response: aiohttp.ClientResponse, model_id: str, chat_id: str | None):
+    completion_id = f'chatcmpl-{uuid.uuid4()}'
+    buffer = ''
+    try:
+        async for chunk_bytes in response.content.iter_any():
+            buffer += chunk_bytes.decode('utf-8', errors='ignore')
+            *lines, buffer = buffer.split('\n\n')
+
+            for line in lines:
+                line = line.strip()
+                if not line.startswith('data:'):
+                    continue
+                try:
+                    event = JSONCodec.loads(line[len('data:'):].strip())
+                except ValueError:
+                    continue
+
+                if 'chunk' in event:
+                    data = openai_chat_chunk_message_template(model_id, event['chunk'], message_id=completion_id)
+                    yield f'data: {JSONCodec.dumps(data)}\n\n'
+
+                elif event.get('thinking'):
+                    # No tool name in the wire contract - nothing to surface yet.
+                    pass
+
+                elif 'file' in event:
+                    # PDF/Excel attachment. Storage/rendering not wired up yet.
+                    filename = event['file'].get('filename', '?')
+                    log.warning('upbot: dropping file attachment "%s" (not wired up yet)', filename)
+
+                elif 'error' in event:
+                    data = openai_chat_chunk_message_template(
+                        model_id, f'\n\n[upbot error: {event["error"]}]', message_id=completion_id
+                    )
+                    yield f'data: {JSONCodec.dumps(data)}\n\n'
+
+                elif event.get('done'):
+                    if chat_id and event.get('session_id'):
+                        _SESSIONS[chat_id] = event['session_id']
+                    data = openai_chat_chunk_message_template(model_id, None, message_id=completion_id)
+                    data['choices'][0]['delta'] = {}
+                    data['choices'][0]['finish_reason'] = 'stop'
+                    yield f'data: {JSONCodec.dumps(data)}\n\n'
+    finally:
+        await cleanup_response(response)
+
+    yield 'data: [DONE]\n\n'
+
+
+async def generate_chat_completion(request: Request, form_data: dict, user: UserModel):
+    if not (ENABLE_UPBOT_API and UPBOT_BASE_URL):
+        raise HTTPException(status_code=400, detail='upbot is not configured')
+
+    model_id = form_data.get('model', '')
+    channel = model_id_to_channel(model_id)
+    api_key = UPBOT_API_KEYS.get(channel)
+    if not api_key:
+        raise HTTPException(status_code=400, detail=f'No upbot API key configured for channel "{channel}"')
+
+    metadata = form_data.get('metadata', {}) or {}
+    if metadata.get('task'):
+        # Title/tags/follow-up generation: upbot has no cheap completion mode,
+        # every call is a real agent-loop turn with tools armed. Let
+        # open-webui fall back to its default behavior for these instead.
+        raise HTTPException(status_code=400, detail='upbot does not support background task generation')
+
+    chat_id = metadata.get('chat_id')
+    stream = bool(form_data.get('stream'))
+
+    payload = convert_payload_openai_to_upbot(form_data, chat_id)
+    path = '/chat/stream' if stream else '/chat'
+
+    headers = {
+        'Content-Type': 'application/json',
+        'X-Api-Key': api_key,
+    }
+    if stream:
+        headers['Accept'] = 'text/event-stream'
+
+    session = await get_session()
+    r = None
+    streaming = False
+    try:
+        r = await session.post(
+            f'{UPBOT_BASE_URL}{path}',
+            data=JSONCodec.dumps(payload),
+            headers=headers,
+            ssl=AIOHTTP_CLIENT_SESSION_SSL,
+            timeout=get_client_timeout(stream=stream),
+        )
+
+        if not r.ok:
+            detail = await r.text()
+            raise HTTPException(status_code=r.status, detail=f'upbot: {detail}')
+
+        if stream:
+            streaming = True
+            return StreamingResponse(
+                convert_streaming_response_upbot_to_openai(r, model_id, chat_id),
+                media_type='text/event-stream',
+            )
+
+        data = await r.json(loads=JSONCodec.loads)
+        if chat_id and data.get('session_id'):
+            _SESSIONS[chat_id] = data['session_id']
+        return convert_response_upbot_to_openai(model_id, data)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'upbot: {e}')
+    finally:
+        # streaming only flips True once ownership of `r` has actually
+        # transferred to the generator's own cleanup - stays False (so this
+        # cleans up here) on any exception raised before that handoff,
+        # including a non-ok response on a streaming request.
+        if not streaming:
+            await cleanup_response(r)

@@ -23,6 +23,9 @@ from open_webui.routers.pipelines import (
     process_pipeline_inlet_filter,
     process_pipeline_outlet_filter,
 )
+from open_webui.routers.upbot import (
+    generate_chat_completion as generate_upbot_chat_completion,
+)
 from open_webui.socket.main import (
     get_event_call,
     get_event_emitter,
@@ -282,6 +285,9 @@ async def generate_chat_completion(
         if model.get('pipe'):
             # Below does not require bypass_filter because this is the only route the uses this function and it is already bypassing the filter
             return await generate_function_chat_completion(request, form_data, user=user, models=models)
+        if model.get('owned_by') == 'upbot':
+            # generate_upbot_chat_completion already returns OpenAI-shaped output.
+            return await generate_upbot_chat_completion(request, form_data, user=user)
         if model.get('owned_by') == 'ollama':
             # Using /ollama/api/chat endpoint
             form_data = convert_payload_openai_to_ollama(form_data)
