@@ -7,6 +7,10 @@ being a thin passthrough like routers/ollama.py or routers/openai.py.
 
 from __future__ import annotations
 
+import asyncio
+import base64
+import hashlib
+import io
 import logging
 import uuid
 
@@ -17,7 +21,9 @@ from fastapi.responses import StreamingResponse
 from open_webui.config import UPBOT_API_KEYS, UPBOT_BASE_URL, UPBOT_USER_ID, ENABLE_UPBOT_API
 from open_webui.env import AIOHTTP_CLIENT_SESSION_SSL
 from open_webui.models.chats import Chats
+from open_webui.models.files import FileForm, Files
 from open_webui.models.users import UserModel
+from open_webui.storage.provider import Storage
 from open_webui.utils.json_codec import JSONCodec
 from open_webui.utils.misc import (
     openai_chat_chunk_message_template,
@@ -94,7 +100,48 @@ def convert_response_upbot_to_openai(model_id: str, upbot_response: dict) -> dic
     return openai_chat_completion_message_template(model_id, upbot_response.get('reply', ''))
 
 
-async def convert_streaming_response_upbot_to_openai(response: aiohttp.ClientResponse, model_id: str, chat_id: str | None):
+async def _store_upbot_file(file_event: dict, user: UserModel, base_url: str) -> str:
+    """Persist a base64 file from upbot's SSE `file` event and return a markdown link to it."""
+    filename = file_event.get('filename', 'file')
+    mime = file_event.get('mime', '')
+    raw = base64.b64decode(file_event.get('data', ''))
+
+    file_id = str(uuid.uuid4())
+    tags = {
+        'OpenWebUI-User-Id': user.id,
+        'OpenWebUI-File-Id': file_id,
+    }
+    contents, file_path = await asyncio.to_thread(
+        Storage.upload_file, io.BytesIO(raw), f'{file_id}_{filename}', tags
+    )
+
+    file_item = await Files.insert_new_file(
+        user.id,
+        FileForm(
+            id=file_id,
+            filename=filename,
+            path=file_path,
+            meta={
+                'name': filename,
+                'content_type': mime or None,
+                'size': len(contents),
+                'file_hash': hashlib.sha256(contents).hexdigest(),
+            },
+        ),
+    )
+    if file_item is None:
+        # insert_new_file() swallows its own exceptions and returns None on
+        # failure instead of raising - check explicitly so a silent DB error
+        # doesn't produce a link to a file that was never actually saved.
+        raise RuntimeError(f'Files.insert_new_file() returned None for "{filename}"')
+
+    icon = '📄' if 'pdf' in mime else '📊'
+    return f'\n\n[{icon} {filename}]({base_url}/api/v1/files/{file_id}/content)'
+
+
+async def convert_streaming_response_upbot_to_openai(
+    response: aiohttp.ClientResponse, model_id: str, chat_id: str | None, user: UserModel, base_url: str
+):
     completion_id = f'chatcmpl-{uuid.uuid4()}'
     buffer = ''
     try:
@@ -120,9 +167,13 @@ async def convert_streaming_response_upbot_to_openai(response: aiohttp.ClientRes
                     pass
 
                 elif 'file' in event:
-                    # PDF/Excel attachment. Storage/rendering not wired up yet.
-                    filename = event['file'].get('filename', '?')
-                    log.warning('upbot: dropping file attachment "%s" (not wired up yet)', filename)
+                    try:
+                        link = await _store_upbot_file(event['file'], user, base_url)
+                    except Exception:
+                        log.exception('upbot: failed to store file attachment "%s"', event['file'].get('filename', '?'))
+                        continue
+                    data = openai_chat_chunk_message_template(model_id, link, message_id=completion_id)
+                    yield f'data: {JSONCodec.dumps(data)}\n\n'
 
                 elif 'error' in event:
                     data = openai_chat_chunk_message_template(
@@ -192,7 +243,9 @@ async def generate_chat_completion(request: Request, form_data: dict, user: User
         if stream:
             streaming = True
             return StreamingResponse(
-                convert_streaming_response_upbot_to_openai(r, model_id, chat_id),
+                convert_streaming_response_upbot_to_openai(
+                    r, model_id, chat_id, user, str(request.base_url).rstrip('/')
+                ),
                 media_type='text/event-stream',
             )
 
