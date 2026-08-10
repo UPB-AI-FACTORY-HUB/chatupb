@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 
 from open_webui.config import UPBOT_API_KEYS, UPBOT_BASE_URL, UPBOT_USER_ID, ENABLE_UPBOT_API
 from open_webui.env import AIOHTTP_CLIENT_SESSION_SSL
+from open_webui.models.chats import Chats
 from open_webui.models.users import UserModel
 from open_webui.utils.json_codec import JSONCodec
 from open_webui.utils.misc import (
@@ -29,12 +30,6 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 MODEL_ID_PREFIX = 'upbot-'
-
-# upbot has no durable session store of its own - its session_id lives
-# only in this process's memory, keyed by open-webui chat_id, until a real
-# persistence layer (e.g. Chat.meta) replaces this. Lost on restart, same
-# volatility as upbot's own in-memory sessions.
-_SESSIONS: dict[str, str] = {}
 
 
 def model_id_to_channel(model_id: str) -> str:
@@ -80,10 +75,10 @@ def _extract_last_user_message(messages: list[dict]) -> str:
     return ''
 
 
-def convert_payload_openai_to_upbot(form_data: dict, chat_id: str | None) -> dict:
+async def convert_payload_openai_to_upbot(form_data: dict, chat_id: str | None) -> dict:
     payload = {'message': _extract_last_user_message(form_data.get('messages', []))}
 
-    session_id = _SESSIONS.get(chat_id) if chat_id else None
+    session_id = await Chats.get_upbot_session_id(chat_id) if chat_id else None
     if session_id:
         payload['session_id'] = session_id
 
@@ -137,7 +132,7 @@ async def convert_streaming_response_upbot_to_openai(response: aiohttp.ClientRes
 
                 elif event.get('done'):
                     if chat_id and event.get('session_id'):
-                        _SESSIONS[chat_id] = event['session_id']
+                        await Chats.set_upbot_session_id(chat_id, event['session_id'])
                     data = openai_chat_chunk_message_template(model_id, None, message_id=completion_id)
                     data['choices'][0]['delta'] = {}
                     data['choices'][0]['finish_reason'] = 'stop'
@@ -168,7 +163,7 @@ async def generate_chat_completion(request: Request, form_data: dict, user: User
     chat_id = metadata.get('chat_id')
     stream = bool(form_data.get('stream'))
 
-    payload = convert_payload_openai_to_upbot(form_data, chat_id)
+    payload = await convert_payload_openai_to_upbot(form_data, chat_id)
     path = '/chat/stream' if stream else '/chat'
 
     headers = {
@@ -203,7 +198,7 @@ async def generate_chat_completion(request: Request, form_data: dict, user: User
 
         data = await r.json(loads=JSONCodec.loads)
         if chat_id and data.get('session_id'):
-            _SESSIONS[chat_id] = data['session_id']
+            await Chats.set_upbot_session_id(chat_id, data['session_id'])
         return convert_response_upbot_to_openai(model_id, data)
 
     except HTTPException:
