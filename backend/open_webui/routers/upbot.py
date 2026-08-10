@@ -62,7 +62,7 @@ async def get_all_models(request: Request, user: UserModel = None) -> list[dict]
     return [
         {
             'id': channel_to_model_id(channel),
-            'name': f'upbot ({channel})',
+            'name': 'UPB AI Agent',
             'object': 'model',
             'created': 0,
             'owned_by': 'upbot',
