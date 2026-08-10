@@ -372,7 +372,7 @@ if UPBOT_BASE_URL.endswith('/'):
     UPBOT_BASE_URL = UPBOT_BASE_URL[:-1]
 
 # JSON object mapping upbot channel name -> X-Api-Key, e.g.
-# '{"chat": "...", "labexa": "..."}'. One model is exposed per key present.
+# '{"chat": "..."}'. One model is exposed per key present.
 UPBOT_API_KEYS = {}
 _upbot_api_keys = os.getenv('UPBOT_API_KEYS', '')
 if _upbot_api_keys:
