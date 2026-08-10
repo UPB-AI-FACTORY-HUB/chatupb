@@ -1,4 +1,5 @@
-"""Reverse-proxy router for upbot.
+"""
+Reverse-proxy router for upbot.
 
 upbot exposes a bespoke {message, session_id, user_id} / SSE contract, not
 an OpenAI-compatible API, so this translates in both directions instead of
@@ -18,7 +19,7 @@ import aiohttp
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from open_webui.config import UPBOT_API_KEYS, UPBOT_BASE_URL, UPBOT_USER_ID, ENABLE_UPBOT_API
+from open_webui.config import UPBOT_API_KEYS, UPBOT_BASE_URL, UPBOT_USER_ID, WEBUI_URL, ENABLE_UPBOT_API
 from open_webui.env import AIOHTTP_CLIENT_SESSION_SSL
 from open_webui.models.chats import Chats
 from open_webui.models.files import FileForm, Files
@@ -53,7 +54,9 @@ async def get_status() -> dict:
 
 
 async def get_all_models(request: Request, user: UserModel = None) -> list[dict]:
-    """One synthetic model per configured upbot channel/API key."""
+    """
+    One synthetic model per configured upbot channel/API key.
+    """
     if not (ENABLE_UPBOT_API and UPBOT_BASE_URL):
         return []
     return [
@@ -101,7 +104,9 @@ def convert_response_upbot_to_openai(model_id: str, upbot_response: dict) -> dic
 
 
 async def _store_upbot_file(file_event: dict, user: UserModel, base_url: str) -> str:
-    """Persist a base64 file from upbot's SSE `file` event and return a markdown link to it."""
+    """
+    Persist a base64 file from upbot's SSE `file` event and return a markdown link to it.
+    """
     filename = file_event.get('filename', 'file')
     mime = file_event.get('mime', '')
     raw = base64.b64decode(file_event.get('data', ''))
@@ -242,10 +247,12 @@ async def generate_chat_completion(request: Request, form_data: dict, user: User
 
         if stream:
             streaming = True
+            # WEBUI_URL is the deployment's declared external origin - stable
+            # across restarts/host changes, unlike a per-request base_url,
+            # which would otherwise get baked permanently into saved messages.
+            base_url = WEBUI_URL.rstrip('/') if WEBUI_URL else str(request.base_url).rstrip('/')
             return StreamingResponse(
-                convert_streaming_response_upbot_to_openai(
-                    r, model_id, chat_id, user, str(request.base_url).rstrip('/')
-                ),
+                convert_streaming_response_upbot_to_openai(r, model_id, chat_id, user, base_url),
                 media_type='text/event-stream',
             )
 

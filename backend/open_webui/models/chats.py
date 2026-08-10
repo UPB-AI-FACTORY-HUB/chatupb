@@ -751,7 +751,9 @@ class ChatTable:
                 await self.delete_orphan_tags_for_user(list(removed), user.id, db=session)
 
     async def get_upbot_session_id(self, id: str) -> str | None:
-        """upbot's session continuation token for this chat, if one has been set."""
+        """
+        upbot's session continuation token for this chat, if one has been set.
+        """
         async with get_async_db_context() as session:
             row = (await session.execute(select(Chat.meta).filter_by(id=id))).one_or_none()
             if row is None:

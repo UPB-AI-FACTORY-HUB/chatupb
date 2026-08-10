@@ -360,9 +360,7 @@ OPENAI_API_BASE_URL = 'https://api.openai.com/v1'
 ####################################
 # UPBOT_API
 #
-# upbot is a single fixed backend, not a multi-connection provider list,
-# so this stays env-var-only for now instead of the DB-backed Connections
-# pattern OpenAI/Ollama use.
+# upbot is a single fixed backend, not a multi-connection provider list.
 ####################################
 
 ENABLE_UPBOT_API = os.getenv('ENABLE_UPBOT_API', 'False').lower() == 'true'
