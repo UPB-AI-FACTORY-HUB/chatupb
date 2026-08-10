@@ -67,6 +67,19 @@ async def get_all_models(request: Request, user: UserModel = None) -> list[dict]
             'created': 0,
             'owned_by': 'upbot',
             'upbot': {'channel': channel},
+            'info': {
+                'meta': {
+                    # upbot's tools are RAG search, warehouse SQL, and PDF/Excel generation only.
+                    'capabilities': {
+                        'vision': False,
+                        'file_upload': False,
+                        'web_search': False,
+                        'image_generation': False,
+                        'code_interpreter': False,
+                        'terminal': False,
+                    },
+                },
+            },
         }
         for channel in UPBOT_API_KEYS
     ]
