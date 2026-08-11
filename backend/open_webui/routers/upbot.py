@@ -13,6 +13,7 @@ import base64
 import hashlib
 import io
 import logging
+import time
 import uuid
 
 import aiohttp
@@ -53,12 +54,55 @@ async def get_status() -> dict:
     return {'status': bool(ENABLE_UPBOT_API and UPBOT_BASE_URL)}
 
 
+# Shown when upbot's /channels/me is unreachable or times out.
+_FALLBACK_DESCRIPTION = (
+    '¡Hola! Soy UPB AI Agent. Puedo ayudarte con: '
+    '📚 info institucional, 📊 consultas de datos, 📄 reportes en PDF y Excel.'
+)
+_CHANNEL_INFO_TTL_SECONDS = 300
+_CHANNEL_INFO_TIMEOUT = aiohttp.ClientTimeout(total=3)
+_channel_info_cache: dict[str, tuple[float, str]] = {}
+
+
+async def _fetch_channel_description(channel: str, api_key: str) -> str:
+    cached = _channel_info_cache.get(channel)
+    now = time.monotonic()
+    if cached and now - cached[0] < _CHANNEL_INFO_TTL_SECONDS:
+        return cached[1]
+
+    description = _FALLBACK_DESCRIPTION
+    try:
+        session = await get_session()
+        r = await session.get(
+            f'{UPBOT_BASE_URL}/channels/me',
+            headers={'X-Api-Key': api_key},
+            ssl=AIOHTTP_CLIENT_SESSION_SSL,
+            timeout=_CHANNEL_INFO_TIMEOUT,
+        )
+        try:
+            if r.ok:
+                data = await r.json(loads=JSONCodec.loads)
+                description = data.get('description') or _FALLBACK_DESCRIPTION
+        finally:
+            await cleanup_response(r)
+    except Exception as e:
+        log.warning('upbot: failed to fetch /channels/me for channel "%s": %s', channel, e)
+
+    _channel_info_cache[channel] = (now, description)
+    return description
+
+
 async def get_all_models(request: Request, user: UserModel = None) -> list[dict]:
     """
     One synthetic model per configured upbot channel/API key.
     """
     if not (ENABLE_UPBOT_API and UPBOT_BASE_URL):
         return []
+
+    descriptions = await asyncio.gather(
+        *(_fetch_channel_description(channel, api_key) for channel, api_key in UPBOT_API_KEYS.items())
+    )
+
     return [
         {
             'id': channel_to_model_id(channel),
@@ -69,7 +113,10 @@ async def get_all_models(request: Request, user: UserModel = None) -> list[dict]
             'upbot': {'channel': channel},
             'info': {
                 'meta': {
-                    # upbot's tools are RAG search, warehouse SQL, and PDF/Excel generation only.
+                    'description': description,
+                    # upbot's tools are RAG search, warehouse SQL, and PDF/Excel generation only -
+                    # none of them are vision/web-search/image-gen/code-exec, so these stay False
+                    # regardless of which tools a channel has enabled.
                     'capabilities': {
                         'vision': False,
                         'file_upload': False,
@@ -81,7 +128,7 @@ async def get_all_models(request: Request, user: UserModel = None) -> list[dict]
                 },
             },
         }
-        for channel in UPBOT_API_KEYS
+        for channel, description in zip(UPBOT_API_KEYS, descriptions)
     ]
 
 
