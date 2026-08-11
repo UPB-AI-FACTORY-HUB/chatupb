@@ -24,6 +24,7 @@ from open_webui.config import UPBOT_API_KEYS, UPBOT_BASE_URL, UPBOT_USER_ID, WEB
 from open_webui.env import AIOHTTP_CLIENT_SESSION_SSL
 from open_webui.models.chats import Chats
 from open_webui.models.files import FileForm, Files
+from open_webui.models.models import ModelForm, Models
 from open_webui.models.users import UserModel
 from open_webui.storage.provider import Storage
 from open_webui.utils.json_codec import JSONCodec
@@ -64,6 +65,32 @@ _CHANNEL_INFO_TIMEOUT = aiohttp.ClientTimeout(total=3)
 _channel_info_cache: dict[str, tuple[float, str]] = {}
 
 
+async def _sync_description_to_model_row(model_id: str, description: str) -> None:
+    """
+    If a model row already exists (created e.g. by granting a user access),
+    keep its stored description in sync with upbot's live value - otherwise
+    that row freezes the description forever at whatever it was when created.
+    Only touches `meta.description`; access grants and any other admin
+    customization on the row are left untouched.
+    """
+    try:
+        model = await Models.get_model_by_id(model_id)
+        if model is None or model.meta.description == description:
+            return
+        form = ModelForm(
+            id=model_id,
+            base_model_id=model.base_model_id,
+            name=model.name,
+            meta=model.meta.model_copy(update={'description': description}),
+            params=model.params,
+            access_grants=None,
+            is_active=model.is_active,
+        )
+        await Models.update_model_by_id(model_id, form)
+    except Exception as e:
+        log.warning('upbot: failed to sync description to model row "%s": %s', model_id, e)
+
+
 async def _fetch_channel_description(channel: str, api_key: str) -> str:
     cached = _channel_info_cache.get(channel)
     now = time.monotonic()
@@ -71,6 +98,7 @@ async def _fetch_channel_description(channel: str, api_key: str) -> str:
         return cached[1]
 
     description = _FALLBACK_DESCRIPTION
+    fetched = False
     try:
         session = await get_session()
         r = await session.get(
@@ -82,13 +110,20 @@ async def _fetch_channel_description(channel: str, api_key: str) -> str:
         try:
             if r.ok:
                 data = await r.json(loads=JSONCodec.loads)
-                description = data.get('description') or _FALLBACK_DESCRIPTION
+                if data.get('description'):
+                    description = data['description']
+                    fetched = True
         finally:
             await cleanup_response(r)
     except Exception as e:
         log.warning('upbot: failed to fetch /channels/me for channel "%s": %s', channel, e)
 
     _channel_info_cache[channel] = (now, description)
+    # Only write back a successfully-fetched value - never the fallback,
+    # or a transient upbot outage would permanently overwrite a good stored
+    # description with the hardcoded placeholder.
+    if fetched:
+        await _sync_description_to_model_row(channel_to_model_id(channel), description)
     return description
 
 

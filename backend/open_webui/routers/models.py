@@ -781,19 +781,29 @@ async def update_model_access_by_id(
 ):
     model = await Models.get_model_by_id(form_data.id, db=db)
 
-    # Non-preset models (e.g. direct Ollama/OpenAI models) may not have a DB
-    # entry yet. Create a minimal one so access grants can be stored.
+    # Non-preset models (e.g. direct Ollama/OpenAI/upbot models) may not have
+    # a DB entry yet. Create one so access grants can be stored, seeded from
+    # the live connector's current name/meta (same source the Workspace ->
+    # Models create form uses) rather than a blank ModelMeta() - otherwise
+    # this freezes the model's description and capability flags at blank
+    # defaults the moment access is first granted.
     if not model:
         if user.role != 'admin':
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
             )
+        # app.state.MODELS may be a plain dict or a Redis-backed RedisDict
+        # (multi-pod deployments); only __getitem__ is guaranteed on both.
+        try:
+            connector_model = request.app.state.MODELS[form_data.id]
+        except KeyError:
+            connector_model = {}
         model = await Models.insert_new_model(
             ModelForm(
                 id=form_data.id,
-                name=form_data.name or form_data.id,
-                meta=ModelMeta(),
+                name=form_data.name or connector_model.get('name') or form_data.id,
+                meta=ModelMeta(**connector_model.get('info', {}).get('meta', {})),
                 params=ModelParams(),
             ),
             user.id,
