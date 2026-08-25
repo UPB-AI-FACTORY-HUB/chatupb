@@ -166,6 +166,7 @@ from open_webui.routers import (
     tasks,
     terminals,
     tools,
+    upbot,
     users,
     utils,
 )
@@ -784,6 +785,7 @@ app.mount('/ws', socket_app)
 
 app.include_router(ollama.router, prefix='/ollama', tags=['ollama'])
 app.include_router(openai.router, prefix='/openai', tags=['openai'])
+app.include_router(upbot.router, prefix='/upbot', tags=['upbot'])
 
 
 app.include_router(pipelines.router, prefix='/api/v1/pipelines', tags=['pipelines'])

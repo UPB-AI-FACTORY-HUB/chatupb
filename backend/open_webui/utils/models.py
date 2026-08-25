@@ -8,6 +8,7 @@ from fastapi import Request
 from open_webui.config import (
     BYPASS_ADMIN_ACCESS_CONTROL,
     DEFAULT_ARENA_MODEL,
+    ENABLE_UPBOT_API,
 )
 from open_webui.env import BYPASS_MODEL_ACCESS_CONTROL, ENABLE_PLUGINS, GLOBAL_LOG_LEVEL
 from open_webui.functions import get_function_models
@@ -18,7 +19,7 @@ from open_webui.models.groups import Groups
 from open_webui.models.models import Models
 from open_webui.utils.chat_variables import get_chat_variables_schema
 from open_webui.models.users import UserModel
-from open_webui.routers import ollama, openai
+from open_webui.routers import ollama, openai, upbot
 from open_webui.socket.utils import RedisDict
 from open_webui.utils.access_control import has_access, has_base_model_access
 from open_webui.utils.plugin import (
@@ -53,15 +54,22 @@ async def fetch_openai_models(request: Request, user: UserModel = None):
     return openai_response['data']
 
 
+async def fetch_upbot_models(request: Request, user: UserModel = None):
+    return await upbot.get_all_models(request, user=user)
+
+
 async def get_all_base_models(request: Request, user: UserModel = None):
     config = await Config.get_many('openai.enable', 'ollama.enable')
     openai_task = fetch_openai_models(request, user) if config.get('openai.enable') else asyncio.sleep(0, result=[])
     ollama_task = fetch_ollama_models(request, user) if config.get('ollama.enable') else asyncio.sleep(0, result=[])
+    upbot_task = fetch_upbot_models(request, user) if ENABLE_UPBOT_API else asyncio.sleep(0, result=[])
     function_task = get_function_models(request)
 
-    openai_models, ollama_models, function_models = await asyncio.gather(openai_task, ollama_task, function_task)
+    openai_models, ollama_models, upbot_models, function_models = await asyncio.gather(
+        openai_task, ollama_task, upbot_task, function_task
+    )
 
-    return function_models + openai_models + ollama_models
+    return function_models + openai_models + ollama_models + upbot_models
 
 
 async def get_all_models(request, refresh: bool = False, user: UserModel = None):

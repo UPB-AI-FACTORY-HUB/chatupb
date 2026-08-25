@@ -750,6 +750,27 @@ class ChatTable:
             if removed:
                 await self.delete_orphan_tags_for_user(list(removed), user.id, db=session)
 
+    async def get_upbot_session_id(self, id: str) -> str | None:
+        """
+        upbot's session continuation token for this chat, if one has been set.
+        """
+        async with get_async_db_context() as session:
+            row = (await session.execute(select(Chat.meta).filter_by(id=id))).one_or_none()
+            if row is None:
+                return None
+            return (row[0] or {}).get('upbot_session_id')
+
+    async def set_upbot_session_id(self, id: str, upbot_session_id: str) -> None:
+        async with get_async_db_context() as session:
+            row = (await session.execute(select(Chat.meta).filter_by(id=id))).one_or_none()
+            if row is None:
+                return None
+            meta = row[0] or {}
+            await session.execute(
+                update(Chat).filter_by(id=id).values(meta={**meta, 'upbot_session_id': upbot_session_id})
+            )
+            await session.commit()
+
     async def get_chat_title_by_id(self, id: str) -> str | None:
         async with get_async_db_context() as session:
             result = await session.execute(select(Chat.title).filter_by(id=id))

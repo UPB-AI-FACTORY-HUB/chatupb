@@ -358,6 +358,38 @@ OPENAI_API_BASE_URL = 'https://api.openai.com/v1'
 
 
 ####################################
+# UPBOT_API
+#
+# upbot is a single fixed backend, not a multi-connection provider list.
+####################################
+
+ENABLE_UPBOT_API = os.getenv('ENABLE_UPBOT_API', 'False').lower() == 'true'
+
+UPBOT_BASE_URL = os.getenv('UPBOT_BASE_URL', '')
+if UPBOT_BASE_URL.endswith('/'):
+    UPBOT_BASE_URL = UPBOT_BASE_URL[:-1]
+
+# JSON object mapping upbot channel name -> X-Api-Key, e.g.
+# '{"chat": "..."}'. One model is exposed per key present.
+UPBOT_API_KEYS = {}
+_upbot_api_keys = os.getenv('UPBOT_API_KEYS', '')
+if _upbot_api_keys:
+    try:
+        parsed = json.loads(_upbot_api_keys)
+        if isinstance(parsed, dict):
+            UPBOT_API_KEYS = parsed
+        else:
+            log.warning('UPBOT_API_KEYS must be a JSON object, ignoring')
+    except (json.JSONDecodeError, TypeError):
+        log.warning('UPBOT_API_KEYS is not valid JSON, ignoring')
+
+# Placeholder until UPB's auth endpoint exists to resolve a real per-user
+# user_code. Base64-encoded, sent as-is on every request to the "chat"
+# channel.
+UPBOT_USER_ID = os.getenv('UPBOT_USER_ID', '')
+
+
+####################################
 # MODELS
 ####################################
 
@@ -1639,36 +1671,6 @@ try:
 except Exception as e:
     log.exception(f'Error loading DEFAULT_PROMPT_SUGGESTIONS: {e}')
     default_prompt_suggestions = []
-if default_prompt_suggestions == []:
-    default_prompt_suggestions = [
-        {
-            'title': ['Help me study', 'vocabulary for a college entrance exam'],
-            'content': "Help me study vocabulary: write a sentence for me to fill in the blank, and I'll try to pick the correct option.",
-        },
-        {
-            'title': ['Give me ideas', "for what to do with my kids' art"],
-            'content': "What are 5 creative things I could do with my kids' art? I don't want to throw them away, but it's also so much clutter.",
-        },
-        {
-            'title': ['Tell me a fun fact', 'about the Roman Empire'],
-            'content': 'Tell me a random fun fact about the Roman Empire',
-        },
-        {
-            'title': ['Show me a code snippet', "of a website's sticky header"],
-            'content': "Show me a code snippet of a website's sticky header in CSS and JavaScript.",
-        },
-        {
-            'title': [
-                'Explain options trading',
-                "if I'm familiar with buying and selling stocks",
-            ],
-            'content': "Explain options trading in simple terms if I'm familiar with buying and selling stocks.",
-        },
-        {
-            'title': ['Overcome procrastination', 'give me tips'],
-            'content': 'Could you start by asking me about instances when I procrastinate the most and then give me some suggestions to overcome it?',
-        },
-    ]
 
 DEFAULT_PROMPT_SUGGESTIONS = default_prompt_suggestions
 
@@ -1865,11 +1867,11 @@ USER_PERMISSIONS_CHAT_EXPORT = os.getenv('USER_PERMISSIONS_CHAT_EXPORT', 'True')
 
 USER_PERMISSIONS_CHAT_IMPORT = os.getenv('USER_PERMISSIONS_CHAT_IMPORT', 'True').lower() == 'true'
 
-USER_PERMISSIONS_CHAT_STT = os.getenv('USER_PERMISSIONS_CHAT_STT', 'True').lower() == 'true'
+USER_PERMISSIONS_CHAT_STT = os.getenv('USER_PERMISSIONS_CHAT_STT', 'False').lower() == 'true'
 
 USER_PERMISSIONS_CHAT_TTS = os.getenv('USER_PERMISSIONS_CHAT_TTS', 'True').lower() == 'true'
 
-USER_PERMISSIONS_CHAT_CALL = os.getenv('USER_PERMISSIONS_CHAT_CALL', 'True').lower() == 'true'
+USER_PERMISSIONS_CHAT_CALL = os.getenv('USER_PERMISSIONS_CHAT_CALL', 'False').lower() == 'true'
 
 USER_PERMISSIONS_CHAT_MULTIPLE_MODELS = os.getenv('USER_PERMISSIONS_CHAT_MULTIPLE_MODELS', 'True').lower() == 'true'
 
