@@ -42,6 +42,7 @@
 		convertHeicToJpeg,
 		compressImage,
 		createMessagesList,
+		hasUpbotAssistantReply,
 		extractContentFromFile,
 		extractCurlyBraceWords,
 		extractInputVariables,
@@ -147,12 +148,8 @@
 		generating;
 	$: canCompact = !!history?.currentId;
 
-	// upbot backs each model with its own session, so switching model mid-chat
-	// would leave the new model blind to earlier turns. Lock the selector once
-	// the chat has a reply; a different model means a new chat.
-	$: upbotModelLocked =
-		(selectedModels ?? []).some((id: string) => (id ?? '').startsWith('upbot-')) &&
-		Object.values(history?.messages ?? {}).some((m: any) => m?.role === 'assistant');
+	// Lock the selector once an upbot chat has a reply; a different model means a new chat.
+	$: upbotModelLocked = hasUpbotAssistantReply(selectedModels, history?.messages);
 
 	// An @-mention bypasses the selector entirely, so the lock has to reject it here too.
 	$: if (upbotModelLocked && atSelectedModel !== undefined && !selectedModels.includes(atSelectedModel.id)) {

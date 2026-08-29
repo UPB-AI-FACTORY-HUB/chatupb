@@ -2200,3 +2200,13 @@ export const displayFileHandler = (
 		stores.showFileNavPath.set(path);
 	}
 };
+
+// True once an upbot chat has an assistant reply. Each upbot model carries its
+// own server-side session, so a prior reply is the point past which switching
+// model (or resuming) loses the earlier turns.
+export const hasUpbotAssistantReply = (
+	selectedModels: string[],
+	messages: Record<string, any>
+): boolean =>
+	(selectedModels ?? []).some((id) => (id ?? '').startsWith('upbot-')) &&
+	Object.values(messages ?? {}).some((m: any) => m?.role === 'assistant');

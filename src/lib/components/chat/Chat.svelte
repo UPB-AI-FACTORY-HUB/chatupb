@@ -55,6 +55,7 @@
 	import {
 		convertMessagesToHistory,
 		copyToClipboard,
+		hasUpbotAssistantReply,
 		getMessageContentParts,
 		createMessagesList,
 		sanitizeHistory,
@@ -167,9 +168,9 @@
 
 	let selectedModels = [''];
 
-	// Chat ids already shown the "upbot may have forgotten context" notice this
-	// visit, so repeated loadChat() calls don't re-toast the same chat.
-	let upbotResumeNoticeShown = new Set<string>();
+	// Last chat id shown the "upbot may have forgotten context" notice, so
+	// repeated loadChat() calls don't re-toast the current chat.
+	let upbotResumeNoticeChatId: string | null = null;
 	let atSelectedModel: Model | undefined;
 	let selectedModelIds = [];
 	$: if (atSelectedModel !== undefined) {
@@ -2028,11 +2029,10 @@
 				// or eviction), in which case the model answers without that history.
 				// There's no signal to detect it, so warn once as a possibility.
 				if (
-					(selectedModels ?? []).some((id) => (id ?? '').startsWith('upbot-')) &&
-					Object.values(history?.messages ?? {}).some((m: any) => m?.role === 'assistant') &&
-					!upbotResumeNoticeShown.has($chatId)
+					hasUpbotAssistantReply(selectedModels, history?.messages) &&
+					upbotResumeNoticeChatId !== $chatId
 				) {
-					upbotResumeNoticeShown.add($chatId);
+					upbotResumeNoticeChatId = $chatId;
 					toast.info(
 						$i18n.t(
 							'Resuming conversation. If the service restarted, the assistant may not remember the full context.'

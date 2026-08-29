@@ -51,10 +51,6 @@ def parse_model_id(model_id: str) -> tuple[str, str | None]:
     return channel, (model if sep else None)
 
 
-def model_id_to_channel(model_id: str) -> str:
-    return parse_model_id(model_id)[0]
-
-
 def channel_to_model_id(channel: str) -> str:
     return f'{MODEL_ID_PREFIX}{channel}'
 
@@ -375,7 +371,7 @@ async def generate_chat_completion(request: Request, form_data: dict, user: User
         raise HTTPException(status_code=400, detail='upbot is not configured')
 
     model_id = form_data.get('model', '')
-    channel = model_id_to_channel(model_id)
+    channel, _ = parse_model_id(model_id)
     api_key = UPBOT_API_KEYS.get(channel)
     if not api_key:
         raise HTTPException(status_code=400, detail=f'No upbot API key configured for channel "{channel}"')
