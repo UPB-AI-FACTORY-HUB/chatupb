@@ -39,10 +39,16 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 MODEL_ID_PREFIX = 'upbot-'
+# Separates the channel from an explicit upbot model id:
+#   upbot-chat              -> channel 'chat', no explicit model (upbot picks its default)
+#   upbot-chat:qwen3.6-35b  -> channel 'chat', model 'qwen3.6-35b'
+MODEL_ID_SEP = ':'
 
 
-def model_id_to_channel(model_id: str) -> str:
-    return model_id[len(MODEL_ID_PREFIX):] if model_id.startswith(MODEL_ID_PREFIX) else model_id
+def parse_model_id(model_id: str) -> tuple[str, str | None]:
+    rest = model_id[len(MODEL_ID_PREFIX):] if model_id.startswith(MODEL_ID_PREFIX) else model_id
+    channel, sep, model = rest.partition(MODEL_ID_SEP)
+    return channel, (model if sep else None)
 
 
 def channel_to_model_id(channel: str) -> str:
@@ -63,6 +69,9 @@ _FALLBACK_DESCRIPTION = (
 _CHANNEL_INFO_TTL_SECONDS = 300
 _CHANNEL_INFO_TIMEOUT = aiohttp.ClientTimeout(total=3)
 _channel_info_cache: dict[str, tuple[float, str]] = {}
+# channel -> (fetched_at, [model ids from upbot's GET /models]). Empty list on
+# any failure, so the model list never blocks on upbot being reachable.
+_channel_models_cache: dict[str, tuple[float, list[str]]] = {}
 
 
 async def _sync_description_to_model_row(model_id: str, description: str) -> None:
@@ -91,11 +100,16 @@ async def _sync_description_to_model_row(model_id: str, description: str) -> Non
         log.warning('upbot: failed to sync description to model row "%s": %s', model_id, e)
 
 
-async def _fetch_channel_description(channel: str, api_key: str) -> str:
+async def _fetch_channel_description(channel: str, api_key: str) -> tuple[str, bool]:
+    """
+    Returns (description, fetched). `fetched` is True only when upbot returned a
+    real description this call - False for a cache hit or the fallback, so
+    callers know whether the value is safe to write back to a model row.
+    """
     cached = _channel_info_cache.get(channel)
     now = time.monotonic()
     if cached and now - cached[0] < _CHANNEL_INFO_TTL_SECONDS:
-        return cached[1]
+        return cached[1], False
 
     description = _FALLBACK_DESCRIPTION
     fetched = False
@@ -119,52 +133,106 @@ async def _fetch_channel_description(channel: str, api_key: str) -> str:
         log.warning('upbot: failed to fetch /channels/me for channel "%s": %s', channel, e)
 
     _channel_info_cache[channel] = (now, description)
-    # Only write back a successfully-fetched value - never the fallback,
-    # or a transient upbot outage would permanently overwrite a good stored
-    # description with the hardcoded placeholder.
-    if fetched:
-        await _sync_description_to_model_row(channel_to_model_id(channel), description)
-    return description
+    return description, fetched
+
+
+async def _fetch_channel_models(channel: str, api_key: str) -> list[str]:
+    """
+    upbot model ids selectable on this channel right now, from GET /models.
+    Empty list on any failure - callers fall back to the channel's bare model
+    entry (upbot resolves its own default) rather than an empty dropdown.
+    """
+    cached = _channel_models_cache.get(channel)
+    now = time.monotonic()
+    if cached and now - cached[0] < _CHANNEL_INFO_TTL_SECONDS:
+        return cached[1]
+
+    models: list[str] = []
+    try:
+        session = await get_session()
+        r = await session.get(
+            f'{UPBOT_BASE_URL}/models',
+            headers={'X-Api-Key': api_key},
+            ssl=AIOHTTP_CLIENT_SESSION_SSL,
+            timeout=_CHANNEL_INFO_TIMEOUT,
+        )
+        try:
+            if r.ok:
+                data = await r.json(loads=JSONCodec.loads)
+                models = [m for m in data.get('models', []) if isinstance(m, str)]
+        finally:
+            await cleanup_response(r)
+    except Exception as e:
+        log.warning('upbot: failed to fetch /models for channel "%s": %s', channel, e)
+
+    _channel_models_cache[channel] = (now, models)
+    return models
+
+
+def _model_entry(model_id: str, name: str, channel: str, description: str) -> dict:
+    return {
+        'id': model_id,
+        'name': name,
+        'object': 'model',
+        'created': 0,
+        'owned_by': 'upbot',
+        'upbot': {'channel': channel},
+        'info': {
+            'meta': {
+                'description': description,
+                # upbot's tools are RAG search, warehouse SQL, and PDF/Excel
+                # generation only - none are vision/web-search/image-gen/code-exec,
+                # so these stay False regardless of channel or model.
+                'capabilities': {
+                    'vision': False,
+                    'file_upload': False,
+                    'web_search': False,
+                    'image_generation': False,
+                    'code_interpreter': False,
+                    'terminal': False,
+                },
+            },
+        },
+    }
 
 
 async def get_all_models(request: Request, user: UserModel = None) -> list[dict]:
     """
-    One synthetic model per configured upbot channel/API key.
+    Per configured upbot channel: a bare `upbot-<channel>` entry (upbot picks
+    its own default model) plus one `upbot-<channel>:<model>` entry per model
+    upbot currently reports as selectable. Each model keeps its own upbot
+    session, so side-by-side compare branches stay isolated.
     """
     if not (ENABLE_UPBOT_API and UPBOT_BASE_URL):
         return []
 
-    descriptions = await asyncio.gather(
-        *(_fetch_channel_description(channel, api_key) for channel, api_key in UPBOT_API_KEYS.items())
+    per_channel = await asyncio.gather(
+        *(
+            asyncio.gather(
+                _fetch_channel_description(channel, api_key),
+                _fetch_channel_models(channel, api_key),
+            )
+            for channel, api_key in UPBOT_API_KEYS.items()
+        )
     )
 
-    return [
-        {
-            'id': channel_to_model_id(channel),
-            'name': 'UPB AI Agent',
-            'object': 'model',
-            'created': 0,
-            'owned_by': 'upbot',
-            'upbot': {'channel': channel},
-            'info': {
-                'meta': {
-                    'description': description,
-                    # upbot's tools are RAG search, warehouse SQL, and PDF/Excel generation only -
-                    # none of them are vision/web-search/image-gen/code-exec, so these stay False
-                    # regardless of which tools a channel has enabled.
-                    'capabilities': {
-                        'vision': False,
-                        'file_upload': False,
-                        'web_search': False,
-                        'image_generation': False,
-                        'code_interpreter': False,
-                        'terminal': False,
-                    },
-                },
-            },
-        }
-        for channel, description in zip(UPBOT_API_KEYS, descriptions)
-    ]
+    models: list[dict] = []
+    sync_tasks = []
+    for channel, ((description, fetched), model_ids) in zip(UPBOT_API_KEYS, per_channel):
+        bare = channel_to_model_id(channel)
+        ids = [bare, *(f'{bare}{MODEL_ID_SEP}{m}' for m in model_ids)]
+        names = ['UPB AI Agent', *(f'UPB AI Agent ({m})' for m in model_ids)]
+        models += [_model_entry(i, n, channel, description) for i, n in zip(ids, names)]
+        # Keep any existing model rows' stored description in sync with upbot's
+        # live value, but never write back the fallback (see the outage note in
+        # _fetch_channel_description). Runs here, where both fetches have
+        # resolved, so every per-model id is covered.
+        if fetched:
+            sync_tasks += [_sync_description_to_model_row(i, description) for i in ids]
+
+    if sync_tasks:
+        await asyncio.gather(*sync_tasks)
+    return models
 
 
 def _extract_last_user_message(messages: list[dict]) -> str:
@@ -179,10 +247,14 @@ def _extract_last_user_message(messages: list[dict]) -> str:
     return ''
 
 
-async def convert_payload_openai_to_upbot(form_data: dict, chat_id: str | None) -> dict:
+async def convert_payload_openai_to_upbot(form_data: dict, chat_id: str | None, model_id: str) -> dict:
     payload = {'message': _extract_last_user_message(form_data.get('messages', []))}
 
-    session_id = await Chats.get_upbot_session_id(chat_id) if chat_id else None
+    _, model = parse_model_id(model_id)
+    if model:
+        payload['model'] = model
+
+    session_id = await Chats.get_upbot_session_id(chat_id, model_id) if chat_id else None
     if session_id:
         payload['session_id'] = session_id
 
@@ -283,7 +355,7 @@ async def convert_streaming_response_upbot_to_openai(
 
                 elif event.get('done'):
                     if chat_id and event.get('session_id'):
-                        await Chats.set_upbot_session_id(chat_id, event['session_id'])
+                        await Chats.set_upbot_session_id(chat_id, model_id, event['session_id'])
                     data = openai_chat_chunk_message_template(model_id, None, message_id=completion_id)
                     data['choices'][0]['delta'] = {}
                     data['choices'][0]['finish_reason'] = 'stop'
@@ -299,7 +371,7 @@ async def generate_chat_completion(request: Request, form_data: dict, user: User
         raise HTTPException(status_code=400, detail='upbot is not configured')
 
     model_id = form_data.get('model', '')
-    channel = model_id_to_channel(model_id)
+    channel, _ = parse_model_id(model_id)
     api_key = UPBOT_API_KEYS.get(channel)
     if not api_key:
         raise HTTPException(status_code=400, detail=f'No upbot API key configured for channel "{channel}"')
@@ -314,7 +386,7 @@ async def generate_chat_completion(request: Request, form_data: dict, user: User
     chat_id = metadata.get('chat_id')
     stream = bool(form_data.get('stream'))
 
-    payload = await convert_payload_openai_to_upbot(form_data, chat_id)
+    payload = await convert_payload_openai_to_upbot(form_data, chat_id, model_id)
     path = '/chat/stream' if stream else '/chat'
 
     headers = {
@@ -353,7 +425,7 @@ async def generate_chat_completion(request: Request, form_data: dict, user: User
 
         data = await r.json(loads=JSONCodec.loads)
         if chat_id and data.get('session_id'):
-            await Chats.set_upbot_session_id(chat_id, data['session_id'])
+            await Chats.set_upbot_session_id(chat_id, model_id, data['session_id'])
         return convert_response_upbot_to_openai(model_id, data)
 
     except HTTPException:

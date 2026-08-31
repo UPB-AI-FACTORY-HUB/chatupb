@@ -55,6 +55,7 @@
 	import {
 		convertMessagesToHistory,
 		copyToClipboard,
+		hasUpbotAssistantReply,
 		getMessageContentParts,
 		createMessagesList,
 		sanitizeHistory,
@@ -166,6 +167,10 @@
 	let eventCallback = null;
 
 	let selectedModels = [''];
+
+	// Last chat id shown the "upbot may have forgotten context" notice, so
+	// repeated loadChat() calls don't re-toast the current chat.
+	let upbotResumeNoticeChatId: string | null = null;
 	let atSelectedModel: Model | undefined;
 	let selectedModelIds = [];
 	$: if (atSelectedModel !== undefined) {
@@ -2018,6 +2023,22 @@
 				// Sanitize history: repair orphaned references and structurally-malformed
 				// nodes from failed regenerations (#24424, #24157, #20474)
 				sanitizeHistory(history);
+
+				// upbot keeps conversation state in memory only. Reopening a chat
+				// with prior turns may hit a session upbot no longer holds (restart
+				// or eviction), in which case the model answers without that history.
+				// There's no signal to detect it, so warn once as a possibility.
+				if (
+					hasUpbotAssistantReply(selectedModels, history?.messages) &&
+					upbotResumeNoticeChatId !== $chatId
+				) {
+					upbotResumeNoticeChatId = $chatId;
+					toast.info(
+						$i18n.t(
+							'Resuming conversation. If the service restarted, the assistant may not remember the full context.'
+						)
+					);
+				}
 
 				chatTitle.set(chatContent.title);
 

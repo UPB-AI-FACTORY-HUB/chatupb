@@ -750,24 +750,27 @@ class ChatTable:
             if removed:
                 await self.delete_orphan_tags_for_user(list(removed), user.id, db=session)
 
-    async def get_upbot_session_id(self, id: str) -> str | None:
+    async def get_upbot_session_id(self, id: str, model_id: str) -> str | None:
         """
-        upbot's session continuation token for this chat, if one has been set.
+        upbot's session continuation token for this chat + model, if set. Each
+        model keeps its own session so side-by-side compare branches stay
+        isolated.
         """
         async with get_async_db_context() as session:
             row = (await session.execute(select(Chat.meta).filter_by(id=id))).one_or_none()
             if row is None:
                 return None
-            return (row[0] or {}).get('upbot_session_id')
+            return ((row[0] or {}).get('upbot_session_ids') or {}).get(model_id)
 
-    async def set_upbot_session_id(self, id: str, upbot_session_id: str) -> None:
+    async def set_upbot_session_id(self, id: str, model_id: str, upbot_session_id: str) -> None:
         async with get_async_db_context() as session:
             row = (await session.execute(select(Chat.meta).filter_by(id=id))).one_or_none()
             if row is None:
                 return None
             meta = row[0] or {}
+            session_ids = {**(meta.get('upbot_session_ids') or {}), model_id: upbot_session_id}
             await session.execute(
-                update(Chat).filter_by(id=id).values(meta={**meta, 'upbot_session_id': upbot_session_id})
+                update(Chat).filter_by(id=id).values(meta={**meta, 'upbot_session_ids': session_ids})
             )
             await session.commit()
 

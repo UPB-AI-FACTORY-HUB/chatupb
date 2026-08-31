@@ -42,6 +42,7 @@
 		convertHeicToJpeg,
 		compressImage,
 		createMessagesList,
+		hasUpbotAssistantReply,
 		extractContentFromFile,
 		extractCurlyBraceWords,
 		extractInputVariables,
@@ -146,6 +147,15 @@
 		(history.currentId && history.messages[history.currentId]?.done != true) ||
 		generating;
 	$: canCompact = !!history?.currentId;
+
+	// Lock the selector once an upbot chat has a reply; a different model means a new chat.
+	$: upbotModelLocked = hasUpbotAssistantReply(selectedModels, history?.messages);
+
+	// An @-mention bypasses the selector entirely, so the lock has to reject it here too.
+	$: if (upbotModelLocked && atSelectedModel !== undefined && !selectedModels.includes(atSelectedModel.id)) {
+		atSelectedModel = undefined;
+		toast.error($i18n.t('This chat is locked to its model. Start a new chat to use a different one.'));
+	}
 
 	export let prompt = '';
 	export let files = [];
@@ -2236,15 +2246,25 @@
 								</div>
 
 								<div class="self-end flex space-x-1 mr-1 shrink-0 gap-[0.5px]">
-									<div class="flex min-w-0 max-w-[10rem] items-center sm:max-w-[13rem]">
-										<ModelSelector
-											bind:selectedModels
-											showSetDefault={!history?.currentId}
-											placement="auto"
-											align="end"
-											triggerClassName="items-center gap-1.5 rounded-lg pl-2 pr-1.5 py-1 text-[13px] font-normal text-gray-600 transition-colors duration-100 hover:bg-gray-50/40 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-800/40 dark:hover:text-gray-200"
-										/>
-									</div>
+									<Tooltip
+										content={upbotModelLocked
+											? $i18n.t(
+													'This chat is locked to its model. Start a new chat to use a different one.'
+												)
+											: ''}
+										placement="top"
+									>
+										<div class="flex min-w-0 max-w-[10rem] items-center sm:max-w-[13rem]">
+											<ModelSelector
+												bind:selectedModels
+												disabled={upbotModelLocked}
+												showSetDefault={!history?.currentId}
+												placement="auto"
+												align="end"
+												triggerClassName="items-center gap-1.5 rounded-lg pl-2 pr-1.5 py-1 text-[13px] font-normal text-gray-600 transition-colors duration-100 hover:bg-gray-50/40 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-800/40 dark:hover:text-gray-200"
+											/>
+										</div>
+									</Tooltip>
 
 									{#if hasChatVariables}
 										<Tooltip content={$i18n.t('Chat Variables')} placement="top">
