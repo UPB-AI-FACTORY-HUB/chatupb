@@ -47,3 +47,11 @@ docker compose up -d
 ```
 
 `docker-compose.yaml` joins `shared-net`, shared with other local projects, specifically so the backend can reach upbot server-to-server (`http://upbot:8080`) without hitting browser CORS. If upbot isn't already up on `shared-net`, requests to it fail.
+
+## Fork notes
+
+Three things that do not behave the way you would expect:
+
+- **A model's database row overrides the code.** If a `model` row already exists for a model id, its name and metadata win over whatever the connector returns. Renaming a model or changing its capabilities in code has no visible effect until that row is updated too.
+- **`backend/open_webui/static/` is not source.** It is wiped and refilled from the frontend build output every time the backend starts. Edit `static/static/` instead.
+- **The frontend build needs extra memory.** `Dockerfile` raises Node's heap for `npm run build`; without it the build runs out of memory.
