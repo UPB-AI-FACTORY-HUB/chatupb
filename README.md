@@ -1,3 +1,13 @@
+# chatupb
+
+A fork of [Open WebUI](https://github.com/open-webui/open-webui) wired to **upbot** as its only backend. The backend calls upbot server-to-server and translates its SSE stream into the OpenAI-style format the UI expects; the integration lives in `backend/open_webui/routers/upbot.py`.
+
+**Setting this up locally? Start with [docs/local-dev.md](docs/local-dev.md)** — it covers the `.env` values, the port collision with upbot, and how to verify a change.
+
+This is a hard fork; upstream is no longer merged in. Everything below is Open WebUI's own README, kept for reference on the features this fork inherits.
+
+---
+
 # Open WebUI 👋
 
 ![GitHub stars](https://img.shields.io/github/stars/open-webui/open-webui?style=social)
