@@ -309,6 +309,10 @@
 					// Set continuous to true for continuous recognition
 					speechRecognition.continuous = true;
 
+					// BCP-47: browsers need a regional tag; Whisper on the server uses ISO-639-1 (`es`)
+					const sttLang = $settings?.audio?.stt?.language || 'es-BO';
+					speechRecognition.lang = sttLang === 'es' ? 'es-BO' : sttLang;
+
 					// Set the timeout for turning off the recognition after inactivity (in milliseconds)
 					const inactivityTimeout = 2000; // 3 seconds
 

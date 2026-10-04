@@ -39,6 +39,8 @@ Then set:
 - `UPBOT_API_KEYS`, a JSON map of channel to key, e.g. `{"chat": "your-upbot-api-key"}`, matching a key upbot's `API_KEYS` issues for the `chat` channel.
 - `ENABLE_UPBOT_API=true` to turn the integration on.
 
+Speech-to-text (Spanish, on-server Whisper) is also configured via `.env` — see [speech-to-text.md](speech-to-text.md) for `AUDIO_STT_ENGINE`, `WHISPER_LANGUAGE`, `WHISPER_MODEL`, privacy, and browser limits.
+
 ## Docker
 
 ```bash
