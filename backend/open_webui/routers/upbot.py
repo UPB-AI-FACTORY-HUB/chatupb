@@ -27,6 +27,7 @@ from open_webui.models.files import FileForm, Files
 from open_webui.models.models import ModelForm, Models
 from open_webui.models.users import UserModel
 from open_webui.storage.provider import Storage
+from open_webui.utils.files import get_image_base64_from_file_id
 from open_webui.utils.json_codec import JSONCodec
 from open_webui.utils.misc import (
     openai_chat_chunk_message_template,
@@ -73,31 +74,53 @@ _channel_info_cache: dict[str, tuple[float, str]] = {}
 # any failure, so the model list never blocks on upbot being reachable.
 _channel_models_cache: dict[str, tuple[float, list[str]]] = {}
 
+# upbot reads images and PDFs itself (see _collect_attachments), so chatupb
+# must not inject its own extracted file text (file_context) or arm its builtin
+# tools. upbot's tools are RAG search, warehouse SQL, and PDF/Excel generation
+# only - none are web-search/image-gen/code-exec - regardless of channel or model.
+_CAPABILITIES = {
+    'vision': True,
+    'file_upload': True,
+    'file_context': False,
+    'builtin_tools': False,
+    'web_search': False,
+    'image_generation': False,
+    'code_interpreter': False,
+    'terminal': False,
+}
 
-async def _sync_description_to_model_row(model_id: str, description: str) -> None:
+# What upbot's ChatRequest.attachments accepts.
+_ATTACHMENT_MIMES = frozenset({'image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf'})
+
+
+async def _sync_model_row(model_id: str, description: str) -> None:
     """
     If a model row already exists (created e.g. by granting a user access),
-    keep its stored description in sync with upbot's live value - otherwise
-    that row freezes the description forever at whatever it was when created.
-    Only touches `meta.description`; access grants and any other admin
-    customization on the row are left untouched.
+    keep its stored description in sync with upbot's live value and its
+    capabilities in sync with _CAPABILITIES - otherwise that row freezes both
+    forever at whatever they were when it was created. Only touches
+    `meta.description` and the `_CAPABILITIES` keys; access grants and any other
+    admin customization on the row are left untouched.
     """
     try:
         model = await Models.get_model_by_id(model_id)
-        if model is None or model.meta.description == description:
+        if model is None:
+            return
+        capabilities = {**(model.meta.capabilities or {}), **_CAPABILITIES}
+        if model.meta.description == description and model.meta.capabilities == capabilities:
             return
         form = ModelForm(
             id=model_id,
             base_model_id=model.base_model_id,
             name=model.name,
-            meta=model.meta.model_copy(update={'description': description}),
+            meta=model.meta.model_copy(update={'description': description, 'capabilities': capabilities}),
             params=model.params,
             access_grants=None,
             is_active=model.is_active,
         )
         await Models.update_model_by_id(model_id, form)
     except Exception as e:
-        log.warning('upbot: failed to sync description to model row "%s": %s', model_id, e)
+        log.warning('upbot: failed to sync model row "%s": %s', model_id, e)
 
 
 async def _fetch_channel_description(channel: str, api_key: str) -> tuple[str, bool]:
@@ -180,17 +203,7 @@ def _model_entry(model_id: str, name: str, channel: str, description: str) -> di
         'info': {
             'meta': {
                 'description': description,
-                # upbot's tools are RAG search, warehouse SQL, and PDF/Excel
-                # generation only - none are vision/web-search/image-gen/code-exec,
-                # so these stay False regardless of channel or model.
-                'capabilities': {
-                    'vision': False,
-                    'file_upload': False,
-                    'web_search': False,
-                    'image_generation': False,
-                    'code_interpreter': False,
-                    'terminal': False,
-                },
+                'capabilities': dict(_CAPABILITIES),
             },
         },
     }
@@ -223,12 +236,12 @@ async def get_all_models(request: Request, user: UserModel = None) -> list[dict]
         ids = [bare, *(f'{bare}{MODEL_ID_SEP}{m}' for m in model_ids)]
         names = ['UPB AI Agent', *(f'UPB AI Agent ({m})' for m in model_ids)]
         models += [_model_entry(i, n, channel, description) for i, n in zip(ids, names)]
-        # Keep any existing model rows' stored description in sync with upbot's
-        # live value, but never write back the fallback (see the outage note in
+        # Keep any existing model rows in sync with upbot's live description,
+        # but never write back the fallback (see the outage note in
         # _fetch_channel_description). Runs here, where both fetches have
         # resolved, so every per-model id is covered.
         if fetched:
-            sync_tasks += [_sync_description_to_model_row(i, description) for i in ids]
+            sync_tasks += [_sync_model_row(i, description) for i in ids]
 
     if sync_tasks:
         await asyncio.gather(*sync_tasks)
@@ -247,8 +260,53 @@ def _extract_last_user_message(messages: list[dict]) -> str:
     return ''
 
 
-async def convert_payload_openai_to_upbot(form_data: dict, chat_id: str | None, model_id: str) -> dict:
+def _split_data_url(url: str) -> tuple[str, str] | None:
+    header, sep, data = url.partition(',')
+    if not (sep and header.startswith('data:') and header.endswith(';base64')):
+        return None
+    return header[len('data:') : -len(';base64')].lower(), data
+
+
+async def _collect_attachments(user_message: dict, user: UserModel) -> list[dict]:
+    """
+    Images and PDFs on the user's current message, in upbot's attachment shape.
+    Only this turn's files: upbot keeps earlier ones in its session history.
+    """
+    attachments = []
+    for item in user_message.get('files') or []:
+        if not isinstance(item, dict):
+            continue
+        url = item.get('url') or ''
+        if url.startswith('data:'):
+            # Temporary chats keep images inline instead of uploading them.
+            data_url = url
+        elif item.get('id') and item.get('type') in ('file', 'image'):
+            # Access-checked: returns None for files the user may not read.
+            data_url = await get_image_base64_from_file_id(item['id'], user=user)
+        else:
+            continue
+
+        name = item.get('name') or 'file'
+        if not data_url:
+            raise HTTPException(status_code=400, detail=f'Could not read attachment "{name}"')
+        parsed = _split_data_url(data_url)
+        if parsed is None or parsed[0] not in _ATTACHMENT_MIMES:
+            raise HTTPException(
+                status_code=400,
+                detail=f'upbot only accepts images (PNG, JPEG, WebP, GIF) and PDFs: "{name}"',
+            )
+        mime, data = parsed
+        attachments.append({'filename': name, 'mime': mime, 'data': data})
+    return attachments
+
+
+async def convert_payload_openai_to_upbot(form_data: dict, chat_id: str | None, model_id: str, user: UserModel) -> dict:
     payload = {'message': _extract_last_user_message(form_data.get('messages', []))}
+
+    metadata = form_data.get('metadata', {}) or {}
+    attachments = await _collect_attachments(metadata.get('user_message') or {}, user)
+    if attachments:
+        payload['attachments'] = attachments
 
     _, model = parse_model_id(model_id)
     if model:
@@ -386,7 +444,7 @@ async def generate_chat_completion(request: Request, form_data: dict, user: User
     chat_id = metadata.get('chat_id')
     stream = bool(form_data.get('stream'))
 
-    payload = await convert_payload_openai_to_upbot(form_data, chat_id, model_id)
+    payload = await convert_payload_openai_to_upbot(form_data, chat_id, model_id, user)
     path = '/chat/stream' if stream else '/chat'
 
     headers = {
