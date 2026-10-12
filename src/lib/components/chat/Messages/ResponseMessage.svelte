@@ -24,6 +24,7 @@
 		user
 	} from '$lib/stores';
 	import { synthesizeOpenAISpeech } from '$lib/apis/audio';
+	import { getSpeechSynthesisVoice } from '$lib/utils/audio';
 	import { imageGenerations } from '$lib/apis/images';
 	import {
 		copyToClipboard as _copyToClipboard,
@@ -258,8 +259,9 @@
 				if (voices.length > 0) {
 					clearInterval(getVoicesLoop);
 
-					const voice = voices.find((v) => v.voiceURI === getVoiceId());
+					const voice = getSpeechSynthesisVoice(voices, getVoiceId(), $i18n.language);
 					const speech = new SpeechSynthesisUtterance(content);
+					speech.lang = voice?.lang ?? $i18n.language;
 					speech.rate = $settings.audio?.tts?.playbackRate ?? 1;
 
 					speech.onend = () => {

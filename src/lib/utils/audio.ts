@@ -7,6 +7,30 @@ interface AudioQueueStopDetail {
 
 export type OnStoppedCallback = (detail: AudioQueueStopDetail) => void;
 
+/**
+ * Pick a browser speech-synthesis voice. Uses the configured voice when the
+ * browser has it; otherwise falls back to a voice for `lang` (the UI language).
+ * Without the fallback, a voice id the browser doesn't know (e.g. the default
+ * `alloy`, an OpenAI voice) leaves the system default voice, often English.
+ */
+export const getSpeechSynthesisVoice = (
+	voices: SpeechSynthesisVoice[],
+	voiceId: string | undefined,
+	lang: string | undefined
+): SpeechSynthesisVoice | undefined => {
+	const configured = voices.find((v) => v.voiceURI === voiceId);
+	if (configured || !lang) return configured;
+
+	const normalize = (l: string) => l.toLowerCase().replace('_', '-');
+	const target = normalize(lang);
+	const base = target.split('-')[0];
+
+	return (
+		voices.find((v) => normalize(v.lang) === target) ??
+		voices.find((v) => normalize(v.lang).split('-')[0] === base)
+	);
+};
+
 export class AudioQueue {
 	private audio: HTMLAudioElement;
 	private queue: string[] = [];

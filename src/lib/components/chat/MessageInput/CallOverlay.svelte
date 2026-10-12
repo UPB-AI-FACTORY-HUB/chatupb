@@ -7,6 +7,7 @@
 	import { blobToFile } from '$lib/utils';
 	import { generateEmoji } from '$lib/apis';
 	import { synthesizeOpenAISpeech, transcribeAudio } from '$lib/apis/audio';
+	import { getSpeechSynthesisVoice } from '$lib/utils/audio';
 
 	import { toast } from 'svelte-sonner';
 
@@ -404,10 +405,10 @@
 					if (voices.length > 0) {
 						clearInterval(getVoicesLoop);
 
-						const voiceId = getVoiceId();
-						const voice = voices?.filter((v) => v.voiceURI === voiceId)?.at(0) ?? undefined;
+						const voice = getSpeechSynthesisVoice(voices, getVoiceId(), $i18n.language);
 
 						currentUtterance = new SpeechSynthesisUtterance(content);
+						currentUtterance.lang = voice?.lang ?? $i18n.language;
 						currentUtterance.rate = $settings.audio?.tts?.playbackRate ?? 1;
 
 						if (voice) {
