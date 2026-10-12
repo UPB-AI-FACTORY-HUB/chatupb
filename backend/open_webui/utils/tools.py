@@ -41,7 +41,6 @@ from open_webui.env import (
     REDIS_KEY_PREFIX,
 )
 from open_webui.models.access_grants import AccessGrants
-from open_webui.models.chats import Chats
 from open_webui.models.config import Config
 from open_webui.models.groups import Groups
 from open_webui.models.tools import Tools
@@ -77,7 +76,6 @@ from open_webui.tools.builtin import (
     query_knowledge_files,
     read_memory_path,
     replace_memory_content,
-    replace_note_content,
     search_calendar_events,
     search_channel_messages,
     search_channels,
@@ -85,7 +83,6 @@ from open_webui.tools.builtin import (
     search_knowledge_bases,
     search_knowledge_files,
     search_memories,
-    search_notes,
     search_web,
     timer,
     toggle_automation,
@@ -98,9 +95,7 @@ from open_webui.tools.builtin import (
     view_chat,
     view_file,
     view_knowledge_file,
-    view_note,
     view_skill,
-    write_note,
 )
 from open_webui.utils.access_control import has_access, has_connection_access, has_permission
 from open_webui.utils.headers import get_custom_headers, include_user_info_headers
@@ -499,7 +494,7 @@ def get_attached_knowledge(model: dict, metadata: dict) -> list[dict]:
     file_context_enabled = (model_meta.get('capabilities') or {}).get('file_context', True)
     if not file_context_enabled:
         for item in metadata.get('files') or []:
-            if not isinstance(item, dict) or item.get('type') not in ('collection', 'note'):
+            if not isinstance(item, dict) or item.get('type') != 'collection':
                 continue
             key = (item.get('type'), item.get('id'))
             if not all(key) or key in seen:
@@ -546,7 +541,6 @@ async def get_builtin_tools(
         'image_generation.enable',
         'images.edit.enable',
         'code_interpreter.enable',
-        'notes.enable',
         'channels.enable',
         'automations.enable',
         'calendar.enable',
@@ -606,11 +600,6 @@ async def get_builtin_tools(
         if ENABLE_KB_EXEC:
             builtin_functions.append(kb_exec)
             builtin_functions.append(query_knowledge_files)
-            # Notes attached to the model need view_note since kb_exec is file-only
-            if model_knowledge:
-                knowledge_types = {item.get('type') for item in model_knowledge}
-                if 'note' in knowledge_types:
-                    builtin_functions.append(view_note)
             if not model_knowledge:
                 builtin_functions.append(query_knowledge_bases)
                 builtin_functions.append(search_knowledge_bases)
@@ -622,8 +611,6 @@ async def get_builtin_tools(
             knowledge_types = {item.get('type') for item in model_knowledge}
             if 'file' in knowledge_types or 'collection' in knowledge_types:
                 builtin_functions.extend([view_file, view_knowledge_file])
-            if 'note' in knowledge_types:
-                builtin_functions.append(view_note)
         else:
             builtin_functions.extend(
                 [
@@ -710,15 +697,6 @@ async def get_builtin_tools(
         builtin_functions.append(execute_code)
 
     chat_id = metadata.get('chat_id') or ''
-    chat = None
-    if is_saved_chat_id(chat_id):
-        chat = await Chats.get_chat_by_id(chat_id)
-
-    # Notes tools - search, view, create, and update user's notes
-    if (chat and (chat.meta or {}).get('internal') is True and (chat.meta or {}).get('type') == 'note') or (
-        is_builtin_tool_enabled('notes') and config.get('notes.enable') and await has_user_permission('notes')
-    ):
-        builtin_functions.extend([search_notes, view_note, write_note, replace_note_content])
 
     # Channels tools - search channels and messages
     if is_builtin_tool_enabled('channels') and config.get('channels.enable') and await has_user_permission('channels'):

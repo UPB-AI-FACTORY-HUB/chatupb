@@ -59,14 +59,12 @@
 	import { deleteFileById } from '$lib/apis/files';
 	import { getChatById } from '$lib/apis/chats';
 	import { getFolderById } from '$lib/apis/folders';
-	import { getNoteById } from '$lib/apis/notes';
 	import { getSessionUser } from '$lib/apis/auths';
 
 	import { WEBUI_BASE_URL, WEBUI_API_BASE_URL, PASTED_TEXT_CHARACTER_LIMIT } from '$lib/constants';
 	import { initiateOAuthRedirect } from '$lib/apis/configs';
 	import { matchKeybinding, Shortcut } from '$lib/shortcuts';
 
-	import { createNoteHandler } from '../notes/utils';
 	import { getSuggestionRenderer } from '../common/RichTextInput/suggestions';
 
 	import InputMenu from './MessageInput/InputMenu.svelte';
@@ -102,8 +100,6 @@
 	import CommandSuggestionList from './MessageInput/CommandSuggestionList.svelte';
 	import Knobs from '../icons/Knobs.svelte';
 	import ValvesModal from '../workspace/common/ValvesModal.svelte';
-	import Note from '../icons/Note.svelte';
-	import { goto } from '$app/navigation';
 	import InputModal from '../common/InputModal.svelte';
 	import Expand from '../icons/Expand.svelte';
 	import QueuedMessageItem from './MessageInput/QueuedMessageItem.svelte';
@@ -718,44 +714,6 @@
 		});
 	};
 
-	const screenCaptureHandler = async () => {
-		try {
-			// Request screen media
-			const mediaStream = await navigator.mediaDevices.getDisplayMedia({
-				video: { cursor: 'never' },
-				audio: false
-			});
-			// Once the user selects a screen, temporarily create a video element
-			const video = document.createElement('video');
-			video.srcObject = mediaStream;
-			// Ensure the video loads without affecting user experience or tab switching
-			await video.play();
-			// Set up the canvas to match the video dimensions
-			const canvas = document.createElement('canvas');
-			canvas.width = video.videoWidth;
-			canvas.height = video.videoHeight;
-			// Grab a single frame from the video stream using the canvas
-			const context = canvas.getContext('2d');
-			context.drawImage(video, 0, 0, canvas.width, canvas.height);
-			// Stop all video tracks (stop screen sharing) after capturing the image
-			mediaStream.getTracks().forEach((track) => track.stop());
-
-			// bring back focus to this current tab, so that the user can see the screen capture
-			window.focus();
-
-			// Convert the canvas to a Base64 image URL
-			const imageUrl = canvas.toDataURL('image/png');
-			const blob = await (await fetch(imageUrl)).blob();
-			const file = new File([blob], `screen-capture-${Date.now()}.png`, { type: 'image/png' });
-			inputFilesHandler([file]);
-			// Clean memory: Clear video srcObject
-			video.srcObject = null;
-		} catch (error) {
-			// Handle any errors (e.g., user cancels screen sharing)
-			console.error('Error capturing screen:', error);
-		}
-	};
-
 	const uploadFileHandler = async (file, process = true, itemData = {}) => {
 		if ($_user?.role !== 'admin' && !($_user?.permissions?.chat?.file_upload ?? true)) {
 			toast.error($i18n.t('You do not have permission to upload files.'));
@@ -979,31 +937,12 @@
 		});
 	};
 
-	const createNote = async () => {
-		if (inputContent?.md.trim() === '' && inputContent?.html.trim() === '') {
-			toast.error($i18n.t('Cannot create an empty note.'));
-			return;
-		}
-
-		const res = await createNoteHandler(
-			dayjs().format('YYYY-MM-DD'),
-			inputContent?.md,
-			inputContent?.html
-		);
-
-		if (res) {
-			// Clear the input content saved in session storage.
-			sessionStorage.removeItem('chat-input');
-			goto(`/notes/${res.id}`);
-		}
-	};
-
 	const onDragOver = (e: DragEvent) => {
 		e.preventDefault();
 
 		// Check if a file or a sidebar chat/folder item is being dragged.
 		// Use a custom MIME type to distinguish intentional drags from SortableJS reorder drags
-		// (e.g. Notes, Workspace, pinned Models), which also set 'text/plain'.
+		// (e.g. pinned Models), which also set 'text/plain'.
 		if (
 			e.dataTransfer?.types?.includes('Files') ||
 			e.dataTransfer?.types?.includes('application/x-open-webui-drag')
@@ -1025,7 +964,7 @@
 		e.preventDefault();
 		console.log(e);
 
-		// Check if the dropped data is a sidebar chat, folder, note, or model item
+		// Check if the dropped data is a sidebar chat, folder, or model item
 		const textData = e.dataTransfer?.getData('text/plain');
 		if (textData) {
 			try {
@@ -1060,23 +999,6 @@
 						};
 						if (!files.find((f) => f.id === folderItem.id)) {
 							files = [...files, folderItem];
-						}
-					}
-					dragged = false;
-					e.stopPropagation();
-					return;
-				} else if (data.type === 'note' && data.id) {
-					// Fetch the note to get its title, then add as a reference note
-					const note = await getNoteById(localStorage.token, data.id);
-					if (note) {
-						const noteItem = {
-							type: 'note',
-							id: note.id,
-							name: note.title,
-							status: 'processed'
-						};
-						if (!files.find((f) => f.id === noteItem.id)) {
-							files = [...files, noteItem];
 						}
 					}
 					dragged = false;
@@ -1923,8 +1845,6 @@
 										bind:files
 										selectedModels={selectedModelIds}
 										{fileUploadCapableModels}
-										{screenCaptureHandler}
-										{inputFilesHandler}
 										uploadFilesHandler={() => {
 											filesInputElement.click();
 										}}
@@ -1963,7 +1883,6 @@
 												console.error('OneDrive Error:', error);
 											}
 										}}
-										{onUpload}
 										onClose={async () => {
 											await tick();
 

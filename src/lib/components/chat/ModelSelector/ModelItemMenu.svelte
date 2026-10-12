@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import { goto } from '$app/navigation';
 
 	import Dropdown from '$lib/components/common/Dropdown.svelte';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
@@ -45,7 +44,7 @@
 
 	<div slot="content">
 		<DropdownMenu className="min-w-[210px] z-[9999999]">
-			{#if model?.preset || model?.info?.base_model_id ? model?.info?.user_id === $user?.id : $user?.role === 'admin'}
+			{#if $user?.role === 'admin' && !model?.preset && !model?.info?.base_model_id}
 				<button
 					type="button"
 					class="select-none flex h-[1.6875rem] w-full items-center gap-2 rounded-xl px-2 text-[13px] hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition"
@@ -53,11 +52,7 @@
 						e.stopPropagation();
 						e.preventDefault();
 
-						if (model?.preset || model?.info?.base_model_id) {
-							goto(`/workspace/models/edit?id=${encodeURIComponent(model?.id ?? '')}`);
-						} else {
-							showSettings.set({ tab: 'admin:models', state: { id: model?.id ?? null } });
-						}
+						showSettings.set({ tab: 'admin:models', state: { id: model?.id ?? null } });
 						show = false;
 					}}
 				>

@@ -314,24 +314,6 @@ class EventDefinitions(BaseModel):
     FOLDER_DELETED: EventDefinition = EventDefinition(
         name='folder.deleted', description='A folder was deleted.', message='Folder deleted'
     )
-    NOTE_CREATED: EventDefinition = EventDefinition(
-        name='note.created', description='A note was created.', message='Note created'
-    )
-    NOTE_UPDATED: EventDefinition = EventDefinition(
-        name='note.updated', description='A note was updated.', message='Note updated'
-    )
-    NOTE_ACCESS_UPDATED: EventDefinition = EventDefinition(
-        name='note.access_updated', description='Note access was updated.', message='Note access updated'
-    )
-    NOTE_PINNED: EventDefinition = EventDefinition(
-        name='note.pinned', description='A note was pinned.', message='Note pinned'
-    )
-    NOTE_UNPINNED: EventDefinition = EventDefinition(
-        name='note.unpinned', description='A note was unpinned.', message='Note unpinned'
-    )
-    NOTE_DELETED: EventDefinition = EventDefinition(
-        name='note.deleted', description='A note was deleted.', message='Note deleted'
-    )
     MEMORY_CREATED: EventDefinition = EventDefinition(
         name='memory.created', description='A memory was created.', message='Memory created'
     )

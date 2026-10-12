@@ -53,7 +53,6 @@
 	export let messagesContainerId = 'messages-container';
 
 	export let onSelect = (e) => {};
-	export let onInsertToNote: ((content: string) => void) | null = null;
 
 	export let messagesCount: number | null = 8;
 	let messagesLoading = false;
@@ -562,7 +561,6 @@
 								{compactPreview}
 								{editCodeBlock}
 								{topPadding}
-								{onInsertToNote}
 							/>
 						{/each}
 					</ul>

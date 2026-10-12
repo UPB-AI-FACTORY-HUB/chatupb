@@ -425,43 +425,6 @@
 		<div class="flex flex-col w-full">
 			<div class="flex w-full justify-between my-1">
 				<div class=" self-center text-xs font-normal">
-					{$i18n.t('Notes Sharing')}
-				</div>
-				<Switch bind:state={permissions.sharing.notes} ariaLabel={$i18n.t('Notes Sharing')} />
-			</div>
-			{#if defaultPermissions?.sharing?.notes && !permissions.sharing.notes}
-				<div>
-					<div class="text-xs text-gray-500">
-						{$i18n.t('This is a default user permission and will remain enabled.')}
-					</div>
-				</div>
-			{/if}
-		</div>
-
-		{#if permissions.sharing.notes}
-			<div class="flex flex-col w-full">
-				<div class="flex w-full justify-between my-1">
-					<div class=" self-center text-xs font-normal">
-						{$i18n.t('Notes Public Sharing')}
-					</div>
-					<Switch
-						bind:state={permissions.sharing.public_notes}
-						ariaLabel={$i18n.t('Notes Public Sharing')}
-					/>
-				</div>
-				{#if defaultPermissions?.sharing?.public_notes && !permissions.sharing.public_notes}
-					<div>
-						<div class="text-xs text-gray-500">
-							{$i18n.t('This is a default user permission and will remain enabled.')}
-						</div>
-					</div>
-				{/if}
-			</div>
-		{/if}
-
-		<div class="flex flex-col w-full">
-			<div class="flex w-full justify-between my-1">
-				<div class=" self-center text-xs font-normal">
 					{$i18n.t('Folders Sharing')}
 				</div>
 				<Switch bind:state={permissions.sharing.folders} ariaLabel={$i18n.t('Folders Sharing')} />
@@ -967,22 +930,6 @@
 				<Switch bind:state={permissions.features.api_keys} ariaLabel={$i18n.t('API Keys')} />
 			</div>
 			{#if defaultPermissions?.features?.api_keys && !permissions.features.api_keys}
-				<div>
-					<div class="text-xs text-gray-500">
-						{$i18n.t('This is a default user permission and will remain enabled.')}
-					</div>
-				</div>
-			{/if}
-		</div>
-
-		<div class="flex flex-col w-full">
-			<div class="flex w-full justify-between my-1">
-				<div class=" self-center text-xs font-normal">
-					{$i18n.t('Notes')}
-				</div>
-				<Switch bind:state={permissions.features.notes} ariaLabel={$i18n.t('Notes')} />
-			</div>
-			{#if defaultPermissions?.features?.notes && !permissions.features.notes}
 				<div>
 					<div class="text-xs text-gray-500">
 						{$i18n.t('This is a default user permission and will remain enabled.')}

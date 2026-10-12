@@ -16,7 +16,6 @@
 		showSearch,
 		mobile,
 		pinnedChats,
-		pinnedNotes,
 		temporaryChatEnabled,
 		channels,
 		socket,
@@ -57,9 +56,7 @@
 		getSharedFolders,
 		updateFolderParentIdById
 	} from '$lib/apis/folders';
-	import { createNewNote, getPinnedNoteList, toggleNotePinnedStatusById } from '$lib/apis/notes';
 	import { updateUserSettings } from '$lib/apis/users';
-	import { createNoteHandler } from '$lib/components/notes/utils';
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 
 	import UserMenu from './Sidebar/UserMenu.svelte';
@@ -77,15 +74,12 @@
 	import SearchModal from './SearchModal.svelte';
 	import FolderModal from './Sidebar/Folders/FolderModal.svelte';
 	import PinnedModelList from './Sidebar/PinnedModelList.svelte';
-	import PinnedNoteList from './Sidebar/PinnedNoteList.svelte';
 	import CalendarIcon from './Sidebar/icons/Calendar.svelte';
 	import ClockIcon from './Sidebar/icons/Clock.svelte';
 	import CodeIcon from './Sidebar/icons/Code.svelte';
 	import EditPencilIcon from './Sidebar/icons/EditPencil.svelte';
-	import NotesIcon from './Sidebar/icons/Notes.svelte';
 	import SearchIcon from './Sidebar/icons/Search.svelte';
 	import Sidebar from '../icons/Sidebar.svelte';
-	import WorkspaceIcon from './Sidebar/icons/Workspace.svelte';
 	import { slide } from 'svelte/transition';
 	import HotkeyHint from '../common/HotkeyHint.svelte';
 	import Dropdown from '../common/Dropdown.svelte';
@@ -94,7 +88,7 @@
 	import MoreHorizontalIcon from './Sidebar/icons/MoreHorizontal.svelte';
 
 	const BREAKPOINT = 768;
-	const DEFAULT_PINNED_ITEMS = ['notes', 'workspace'];
+	const DEFAULT_PINNED_ITEMS = [];
 
 	let scrollTop = 0;
 
@@ -123,7 +117,6 @@
 	let pinnedModels = [];
 
 	let showPinnedModels = false;
-	let showPinnedNotes = false;
 	let showChannels = false;
 	let showFolders = false;
 	let showSharedFolders = false;
@@ -149,20 +142,6 @@
 
 	const isMenuItemVisible = (id) => {
 		switch (id) {
-			case 'notes':
-				return (
-					($config?.features?.enable_notes ?? false) &&
-					($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))
-				);
-			case 'workspace':
-				return (
-					$user?.role === 'admin' ||
-					$user?.permissions?.workspace?.models ||
-					$user?.permissions?.workspace?.knowledge ||
-					$user?.permissions?.workspace?.prompts ||
-					$user?.permissions?.workspace?.tools ||
-					$user?.permissions?.workspace?.skills
-				);
 			case 'automations':
 				return (
 					$config?.features?.enable_automations &&
@@ -182,8 +161,6 @@
 
 	const getMenuItemMeta = (id) => {
 		const items = {
-			notes: { label: 'Notes', href: '/notes', iconType: 'note' },
-			workspace: { label: 'Workspace', href: '/workspace', iconType: 'workspace' },
 			automations: { label: 'Automations', href: '/automations', iconType: 'automations' },
 			calendar: { label: 'Calendar', href: '/calendar', iconType: 'calendar' },
 			playground: { label: 'Playground', href: '/playground', iconType: 'playground' }
@@ -192,8 +169,6 @@
 	};
 
 	const menuItemPathPrefixes = {
-		notes: '/notes',
-		workspace: '/workspace',
 		calendar: '/calendar',
 		automations: '/automations',
 		playground: '/playground'
@@ -382,16 +357,6 @@
 				console.log('Init tags');
 				const _tags = await getAllTags(localStorage.token);
 				tags.set(_tags);
-			})(),
-			(async () => {
-				if (
-					$config?.features?.enable_notes &&
-					($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))
-				) {
-					console.log('Init pinned notes');
-					const _pinnedNotes = await getPinnedNoteList(localStorage.token).catch(() => []);
-					pinnedNotes.set(_pinnedNotes);
-				}
 			})(),
 			(async () => {
 				console.log('Init chat list');
@@ -1039,11 +1004,7 @@
 												: 'bg-black/[0.035] dark:bg-white/[0.045]'
 											: 'group-hover:bg-gray-50 dark:group-hover:bg-gray-900'}"
 									>
-										{#if itemId === 'notes'}
-											<NotesIcon className="size-4" strokeWidth="1.5" />
-										{:else if itemId === 'workspace'}
-											<WorkspaceIcon className="size-4" strokeWidth="1.5" />
-										{:else if itemId === 'automations'}
+										{#if itemId === 'automations'}
 											<ClockIcon className="size-4" strokeWidth="1.5" />
 										{:else if itemId === 'calendar'}
 											<CalendarIcon className="size-4" strokeWidth="1.5" />
@@ -1249,11 +1210,7 @@
 										aria-label={$i18n.t(meta.label)}
 									>
 										<div class="self-center flex size-4 shrink-0 items-center justify-center">
-											{#if itemId === 'notes'}
-												<NotesIcon className="size-4" strokeWidth="1.5" />
-											{:else if itemId === 'workspace'}
-												<WorkspaceIcon className="size-4" strokeWidth="1.5" />
-											{:else if itemId === 'automations'}
+											{#if itemId === 'automations'}
 												<ClockIcon className="size-4" strokeWidth="1.5" />
 											{:else if itemId === 'calendar'}
 												<CalendarIcon className="size-4" strokeWidth="1.5" />
@@ -1281,25 +1238,6 @@
 						dragAndDrop={false}
 					>
 						<PinnedModelList bind:selectedChatId {shiftKey} />
-					</SidebarSection>
-				{/if}
-
-				{#if ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true)) && $pinnedNotes.length > 0}
-					<SidebarSection
-						id="sidebar-pinned-notes"
-						bind:open={showPinnedNotes}
-						className="mt-0.5"
-						name={$i18n.t('Notes')}
-						dragAndDrop={false}
-						onAdd={async () => {
-							const note = await createNoteHandler('New Note');
-							if (note) {
-								goto(`/notes/${note.id}`);
-							}
-						}}
-						onAddLabel={$i18n.t('New Note')}
-					>
-						<PinnedNoteList bind:selectedChatId />
 					</SidebarSection>
 				{/if}
 

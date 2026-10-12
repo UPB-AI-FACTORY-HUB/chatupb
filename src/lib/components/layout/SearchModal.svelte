@@ -24,12 +24,10 @@
 	import Loader from '../common/Loader.svelte';
 	import { createMessagesList } from '$lib/utils';
 	import { getOutputText } from '$lib/components/chat/Messages/structuredOutput';
-	import { config, user, chatId as currentChatId, tags } from '$lib/stores';
+	import { user, chatId as currentChatId, tags } from '$lib/stores';
 	import { refreshChatList } from '$lib/stores/chatList';
 	import Messages from '../chat/Messages.svelte';
 	import { goto } from '$app/navigation';
-	import EditPencilIcon from './Sidebar/icons/EditPencil.svelte';
-	import NotesIcon from './Sidebar/icons/Notes.svelte';
 
 	import ChatMenu from './Sidebar/ChatMenu.svelte';
 	import ShareChatModal from '../chat/ShareChatModal.svelte';
@@ -243,18 +241,6 @@
 		}
 	};
 
-	let actions = [
-		{
-			label: $i18n.t('Start a new conversation'),
-			onClick: async () => {
-				await goto(`/${query ? `?q=${query}` : ''}`);
-				show = false;
-				onClose();
-			},
-			icon: EditPencilIcon
-		}
-	];
-
 	let query = '';
 	let page = 1;
 
@@ -342,8 +328,7 @@
 			return;
 		}
 
-		const selectedChatIdx = selectedIdx - actions.length;
-		if (selectedChatIdx < 0 || selectedChatIdx >= chatList.length) {
+		if (selectedIdx < 0 || selectedIdx >= chatList.length) {
 			selectedChat = null;
 			messages = null;
 			history = null;
@@ -351,7 +336,7 @@
 			return;
 		}
 
-		const chatId = chatList[selectedChatIdx].id;
+		const chatId = chatList[selectedIdx].id;
 
 		const chat = await getChatById(localStorage.token, chatId).catch(async (error) => {
 			return null;
@@ -491,7 +476,7 @@
 				}
 			}
 
-			selectedIdx = Math.min(selectedIdx + 1, (chatList ?? []).length - 1 + actions.length);
+			selectedIdx = Math.min((selectedIdx ?? -1) + 1, (chatList ?? []).length - 1);
 		} else if (e.code === 'ArrowUp') {
 			if (selectedIdx === 0) {
 				const searchInput = document.getElementById('search-input');
@@ -514,24 +499,6 @@
 	};
 
 	onMount(() => {
-		actions = [
-			...actions,
-			...(($config?.features?.enable_notes ?? false) &&
-			($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))
-				? [
-						{
-							label: $i18n.t('Create a new note'),
-							onClick: async () => {
-								await goto(`/notes?content=${query}`);
-								show = false;
-								onClose();
-							},
-							icon: NotesIcon
-						}
-					]
-				: [])
-		];
-
 		document.addEventListener('keydown', onKeyDown);
 		document.addEventListener('keydown', onShiftKeyDown);
 		document.addEventListener('keyup', onShiftKeyUp);
@@ -583,7 +550,7 @@
 						show = false;
 						return;
 					} else if (e.code === 'ArrowDown') {
-						selectedIdx = Math.min(selectedIdx + 1, (chatList ?? []).length - 1 + actions.length);
+						selectedIdx = Math.min((selectedIdx ?? -1) + 1, (chatList ?? []).length - 1);
 					} else if (e.code === 'ArrowUp') {
 						selectedIdx = Math.max(selectedIdx - 1, 0);
 					} else {
@@ -600,39 +567,7 @@
 			<div
 				class="flex flex-col overflow-y-auto h-96 md:h-[40rem] max-h-full scrollbar-hidden w-full flex-1 pr-2"
 			>
-				<div class="w-full text-xs text-gray-500 dark:text-gray-500 font-normal pb-2 px-2">
-					{$i18n.t('Actions')}
-				</div>
-
-				{#each actions as action, idx (action.label)}
-					<button
-						class="w-full flex items-center rounded-lg text-sm py-1.5 px-2.5 hover:bg-gray-50/70 dark:hover:bg-gray-850/50 {selectedIdx ===
-						idx
-							? 'bg-gray-50/70 dark:bg-gray-850/50'
-							: ''}"
-						data-arrow-selected={selectedIdx === idx ? 'true' : undefined}
-						draggable="false"
-						on:mouseenter={() => {
-							selectedIdx = idx;
-						}}
-						on:click={async () => {
-							await action.onClick();
-						}}
-					>
-						<div class="pr-2">
-							<svelte:component this={action.icon} />
-						</div>
-						<div class=" flex-1 text-left">
-							<div class="text-ellipsis line-clamp-1 w-full">
-								{$i18n.t(action.label)}
-							</div>
-						</div>
-					</button>
-				{/each}
-
 				{#if chatList}
-					<div aria-hidden="true" class="h-px my-3" />
-
 					{#if chatList.length === 0}
 						<div class="text-xs text-gray-500 dark:text-gray-400 text-center px-5 py-4">
 							{$i18n.t('No results found')}
@@ -671,12 +606,12 @@
 						<!-- svelte-ignore a11y-no-static-element-interactions -->
 						<div
 							class="w-full flex justify-between items-center rounded-lg text-sm py-1.5 pl-2.5 pr-32 hover:bg-gray-50/70 dark:hover:bg-gray-850/50 group/item relative {selectedIdx ===
-							idx + actions.length
+							idx
 								? 'bg-gray-50/70 dark:bg-gray-850/50'
 								: ''}"
-							data-arrow-selected={selectedIdx === idx + actions.length ? 'true' : undefined}
+							data-arrow-selected={selectedIdx === idx ? 'true' : undefined}
 							on:mouseenter={() => {
-								selectedIdx = idx + actions.length;
+								selectedIdx = idx;
 							}}
 						>
 							{#if editingChatId === chat.id}

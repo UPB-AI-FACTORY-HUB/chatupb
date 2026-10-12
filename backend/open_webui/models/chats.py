@@ -479,39 +479,6 @@ class ChatTable:
             )
             return list(result.scalars().all())
 
-    async def get_internal_chat_by_note_id(
-        self, note_id: str, user_id: str, db: AsyncSession | None = None
-    ) -> ChatModel | None:
-        async with get_async_db_context(db) as session:
-            result = await session.execute(
-                select(Chat)
-                .where(
-                    Chat.user_id == user_id,
-                    Chat.meta['internal'].as_boolean().is_(True),
-                    Chat.meta['type'].as_string() == 'note',
-                    Chat.meta['note_id'].as_string() == note_id,
-                )
-                .order_by(Chat.updated_at.desc(), Chat.created_at.desc())
-            )
-            chat = result.scalars().first()
-            return ChatModel.model_validate(chat) if chat else None
-
-    async def get_internal_chats_by_note_id(
-        self, note_id: str, user_id: str, db: AsyncSession | None = None
-    ) -> list[ChatModel]:
-        async with get_async_db_context(db) as session:
-            result = await session.execute(
-                select(Chat)
-                .where(
-                    Chat.user_id == user_id,
-                    Chat.meta['internal'].as_boolean().is_(True),
-                    Chat.meta['type'].as_string() == 'note',
-                    Chat.meta['note_id'].as_string() == note_id,
-                )
-                .order_by(Chat.updated_at.desc(), Chat.created_at.desc())
-            )
-            return [ChatModel.model_validate(chat) for chat in result.scalars().all()]
-
     def _chat_import_form_to_chat_model(self, user_id: str, form_data: ChatImportForm) -> ChatModel:
         id = str(uuid.uuid4())
         chat = ChatModel(

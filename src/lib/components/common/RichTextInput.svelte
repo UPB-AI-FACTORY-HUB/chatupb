@@ -186,7 +186,6 @@
 	import { createLowlight } from 'lowlight';
 	import hljs from 'highlight.js';
 
-	import type { SocketIOCollaborationProvider } from './RichTextInput/Collaboration';
 
 	export let oncompositionstart = (e) => {};
 	export let oncompositionend = (e) => {};
@@ -205,11 +204,7 @@
 
 	export let editor: Editor | null = null;
 
-	export let socket = null;
-	export let user = null;
 	export let files = [];
-
-	export let documentId = '';
 
 	export let className = 'input-prose min-h-fit h-full';
 	export let placeholder = $i18n.t('Type here...');
@@ -297,7 +292,6 @@
 	export let json = false;
 	export let raw = false;
 	export let editable = true;
-	export let collaboration = false;
 
 	export let showFormattingToolbar = true;
 
@@ -315,7 +309,6 @@
 	let jsonValue = '';
 	let mdValue = '';
 
-	let provider: SocketIOCollaborationProvider | null = null;
 
 	let floatingMenuElement: Element | null = null;
 	let bubbleMenuElement: Element | null = null;
@@ -749,10 +742,6 @@
 			}
 		}
 
-		if (collaboration && documentId && socket && user) {
-			const { SocketIOCollaborationProvider } = await import('./RichTextInput/Collaboration');
-			provider = new SocketIOCollaborationProvider(documentId, socket, user, content);
-		}
 		editor = new Editor({
 			element: element,
 			extensions: [
@@ -890,10 +879,9 @@
 								}
 							})
 						]
-					: []),
-				...(collaboration && provider ? [provider.getEditorExtension()] : [])
+					: [])
 			],
-			content: collaboration ? undefined : content,
+			content: content,
 			autofocus: messageInput ? true : false,
 			onTransaction: () => {
 				if (!editor) return;
@@ -1267,8 +1255,6 @@
 			enablePasteRules: richText
 		});
 
-		provider?.setEditor(editor, () => ({ md: mdValue, html: htmlValue, json: jsonValue }));
-
 		if (messageInput) {
 			selectTemplate();
 		}
@@ -1279,16 +1265,12 @@
 			cancelAnimationFrame(pendingUpdate);
 		}
 
-		if (provider) {
-			provider.destroy();
-		}
-
 		if (editor) {
 			editor.destroy();
 		}
 	});
 
-	$: if (value !== null && editor && !collaboration) {
+	$: if (value !== null && editor) {
 		onValueChange();
 	}
 

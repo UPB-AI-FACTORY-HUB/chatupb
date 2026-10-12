@@ -272,13 +272,6 @@
 					</AdminSettingRow>
 				{/if}
 				<AdminSettingRow
-					label={$i18n.t('Notes')}
-					description={$i18n.t('Allow users to create and manage notes.')}
-					let:labelId
-				>
-					<Switch bind:state={adminConfig.ENABLE_NOTES} ariaLabelledbyId={labelId} />
-				</AdminSettingRow>
-				<AdminSettingRow
 					label={$i18n.t('Channels')}
 					description={$i18n.t('Allow users to use channels for shared conversations.')}
 					let:labelId

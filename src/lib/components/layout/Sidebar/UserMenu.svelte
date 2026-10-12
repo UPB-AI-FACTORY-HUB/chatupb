@@ -23,13 +23,11 @@
 	import HelpCircleIcon from './icons/HelpCircle.svelte';
 	import LogOutIcon from './icons/LogOut.svelte';
 	import MapIcon from './icons/Map.svelte';
-	import NotesIcon from './icons/Notes.svelte';
 	import PinIcon from './icons/Pin.svelte';
 	import PinSlashIcon from './icons/PinSlash.svelte';
 	import Settings from '$lib/components/icons/Settings.svelte';
 	import KeyIcon from './icons/Key.svelte';
 	import UserIcon from './icons/User.svelte';
-	import WorkspaceIcon from './icons/Workspace.svelte';
 	import XMarkIcon from './icons/XMark.svelte';
 	import { updateUserStatus, updateUserSettings } from '$lib/apis/users';
 	import { toast } from 'svelte-sonner';
@@ -52,7 +50,7 @@
 
 	const dispatch = createEventDispatcher();
 
-	const DEFAULT_PINNED_ITEMS = ['notes', 'workspace'];
+	const DEFAULT_PINNED_ITEMS = [];
 
 	$: pinnedItems = $settings?.pinnedMenuItems ?? DEFAULT_PINNED_ITEMS;
 
@@ -236,94 +234,6 @@
 
 			{#if profile}
 				<hr class="border-gray-50/30 dark:border-gray-800/30 my-0.5 mx-1 p-0" />
-			{/if}
-
-			{#if $user?.role === 'admin' || $user?.permissions?.workspace?.models || $user?.permissions?.workspace?.knowledge || $user?.permissions?.workspace?.prompts || $user?.permissions?.workspace?.tools || $user?.permissions?.workspace?.skills}
-				<div class="flex items-center w-full">
-					<a
-						href="/workspace"
-						draggable="false"
-						class="flex flex-1 h-[1.6875rem] items-center gap-2 rounded-xl px-2 text-[13px] hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition cursor-pointer select-none"
-						on:click={async (e) => {
-							if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
-							e.preventDefault();
-							show = false;
-							goto('/workspace');
-							if ($mobile) {
-								await tick();
-								showSidebar.set(false);
-							}
-						}}
-					>
-						<div class="self-center">
-							<WorkspaceIcon className="size-3.5" strokeWidth="1.5" />
-						</div>
-						<div class="self-center truncate">{$i18n.t('Workspace')}</div>
-					</a>
-					{#if shiftKey}
-						<Tooltip
-							content={isPinned('workspace')
-								? $i18n.t('Unpin from Sidebar')
-								: $i18n.t('Pin to Sidebar')}
-						>
-							<button
-								type="button"
-								class="p-1 mr-1 rounded-lg hover:bg-gray-100/60 dark:hover:bg-gray-700/60 transition"
-								on:click|preventDefault|stopPropagation={() => togglePin('workspace')}
-							>
-								{#if isPinned('workspace')}
-									<PinSlashIcon className="size-3.5" strokeWidth="1.5" />
-								{:else}
-									<PinIcon className="size-3.5" strokeWidth="1.5" />
-								{/if}
-							</button>
-						</Tooltip>
-					{/if}
-				</div>
-			{/if}
-
-			{#if ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))}
-				<div class="flex items-center w-full">
-					<a
-						href="/notes"
-						draggable="false"
-						class="flex flex-1 h-[1.6875rem] items-center gap-2 rounded-xl px-2 text-[13px] hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition cursor-pointer select-none"
-						on:click={async (e) => {
-							if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
-							e.preventDefault();
-							show = false;
-							goto('/notes');
-							if ($mobile) {
-								await tick();
-								showSidebar.set(false);
-							}
-						}}
-					>
-						<div class="self-center">
-							<NotesIcon className="size-3.5" strokeWidth="1.5" />
-						</div>
-						<div class="self-center truncate">{$i18n.t('Notes')}</div>
-					</a>
-					{#if shiftKey}
-						<Tooltip
-							content={isPinned('notes')
-								? $i18n.t('Unpin from Sidebar')
-								: $i18n.t('Pin to Sidebar')}
-						>
-							<button
-								type="button"
-								class="p-1 mr-1 rounded-lg hover:bg-gray-100/60 dark:hover:bg-gray-700/60 transition"
-								on:click|preventDefault|stopPropagation={() => togglePin('notes')}
-							>
-								{#if isPinned('notes')}
-									<PinSlashIcon className="size-3.5" strokeWidth="1.5" />
-								{:else}
-									<PinIcon className="size-3.5" strokeWidth="1.5" />
-								{/if}
-							</button>
-						</Tooltip>
-					{/if}
-				</div>
 			{/if}
 
 			{#if $config?.features?.enable_calendar && ($user?.role === 'admin' || $user?.permissions?.features?.calendar)}

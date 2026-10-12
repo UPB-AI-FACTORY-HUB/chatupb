@@ -7,7 +7,7 @@
 	import { onMount, onDestroy, getContext, tick } from 'svelte';
 	const i18n = getContext('i18n');
 
-	import { config, models as _models, settings, showSettings, user } from '$lib/stores';
+	import { config, models as _models, settings, user } from '$lib/stores';
 	import {
 		createNewModel,
 		deleteAllModels,
@@ -53,7 +53,6 @@
 	import GlobeAlt from '$lib/components/icons/GlobeAlt.svelte';
 	import LockClosed from '$lib/components/icons/LockClosed.svelte';
 	import { WEBUI_API_BASE_URL } from '$lib/constants';
-	import { goto } from '$app/navigation';
 
 	import Dropdown from '$lib/components/common/Dropdown.svelte';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
@@ -585,18 +584,6 @@
 		workspaceModels.some((workspaceModel) => workspaceModel.id === model.id)
 			? ((await getModelById(localStorage.token, model.id).catch(() => null)) ?? model)
 			: model;
-
-	const cloneHandler = async (model) => {
-		model = await getFullModel(model);
-		sessionStorage.model = JSON.stringify({
-			...model,
-			base_model_id: model.id,
-			id: `${model.id}-clone`,
-			name: `${model.name} (Clone)`
-		});
-		showSettings.set(false);
-		await goto('/workspace/models/create');
-	};
 
 	const exportModelHandler = async (model) => {
 		model = await getFullModel(model);
@@ -1142,9 +1129,6 @@
 										}}
 										copyLinkHandler={() => {
 											copyLinkHandler(model);
-										}}
-										cloneHandler={() => {
-											cloneHandler(model);
 										}}
 										onClose={() => {}}
 									>

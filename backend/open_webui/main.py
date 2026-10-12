@@ -155,7 +155,6 @@ from open_webui.routers import (
     memories,
     models,
     notifications,
-    notes,
     ollama,
     openai,
     pipelines,
@@ -803,7 +802,6 @@ app.include_router(users.router, prefix='/api/v1/users', tags=['users'])
 
 app.include_router(channels.router, prefix='/api/v1/channels', tags=['channels'])
 app.include_router(chats.router, prefix='/api/v1/chats', tags=['chats'])
-app.include_router(notes.router, prefix='/api/v1/notes', tags=['notes'])
 
 
 app.include_router(models.router, prefix='/api/v1/models', tags=['models'])
@@ -2119,7 +2117,6 @@ async def get_app_config(request: Request):
         'channels.enable',
         'calendar.enable',
         'automations.enable',
-        'notes.enable',
         'chat.context_compaction.enable',
         'web.search.enable',
         'web.search.confirmation.enable',
@@ -2195,7 +2192,6 @@ async def get_app_config(request: Request):
                     'enable_channels': config.get('channels.enable'),
                     'enable_calendar': config.get('calendar.enable'),
                     'enable_automations': config.get('automations.enable'),
-                    'enable_notes': config.get('notes.enable'),
                     'enable_context_compaction': config.get('chat.context_compaction.enable'),
                     'enable_web_search': config.get('web.search.enable'),
                     'enable_web_search_confirmation': config.get('web.search.confirmation.enable'),
