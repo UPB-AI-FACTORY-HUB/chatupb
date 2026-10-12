@@ -100,6 +100,7 @@
 				logo.id = 'logo';
 				logo.style =
 					'position: absolute; width: auto; height: 6rem; top: 44%; left: 50%; transform: translateX(-50%); display:block;';
+				logo.className = 'animate-pulse-fast';
 				logo.loading = 'eager';
 				logo.fetchPriority = 'high';
 				logo.src = isDarkMode ? '/static/splash-dark.png' : '/static/splash.png';
@@ -115,7 +116,7 @@
 			})();
 		</script>
 
-		<title>Open WebUI</title>
+		<title>ChatUPB</title>
 
 		%sveltekit.head%
 	</head>

@@ -15,7 +15,8 @@
 		user,
 		models as _models,
 		temporaryChatEnabled,
-		selectedFolder
+		selectedFolder,
+		WEBUI_NAME
 	} from '$lib/stores';
 	import { refreshChatList } from '$lib/stores/chatList';
 	import { sanitizeResponseContent, extractCurlyBraceWords } from '$lib/utils';
@@ -147,19 +148,7 @@
 						class=" text-2xl @sm:text-2xl line-clamp-1 flex items-center"
 						in:fade={{ duration: 100 }}
 					>
-						{#if models[selectedModelIdx]?.name}
-							<Tooltip
-								content={models[selectedModelIdx]?.name}
-								placement="top"
-								className=" flex items-center "
-							>
-								<span class="line-clamp-1">
-									{models[selectedModelIdx]?.name}
-								</span>
-							</Tooltip>
-						{:else}
-							{$i18n.t('Hello, {{name}}', { name: $user?.name })}
-						{/if}
+						<span class="line-clamp-1">{$WEBUI_NAME}</span>
 					</div>
 				</div>
 
