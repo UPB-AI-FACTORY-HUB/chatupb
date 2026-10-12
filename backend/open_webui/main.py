@@ -1085,6 +1085,12 @@ async def chat_completion(
             model = model_item
             await _set_direct_model(request, model, user)
 
+        # upbot refuses title/tags/follow-up generation (every call is a full
+        # agent turn), so don't ask. With title generation off, the chat title
+        # falls back to the first message (see background_tasks_handler).
+        if model.get('owned_by') == 'upbot' and tasks:
+            tasks = {task: False for task in tasks}
+
         # Model params: global defaults as base, per-model overrides win
         default_model_params = await Config.get('models.default_params', {}) or {}
         model_info_params = {
