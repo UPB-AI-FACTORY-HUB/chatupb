@@ -48,7 +48,7 @@
 	import ChangelogModal from '$lib/components/ChangelogModal.svelte';
 	import AccountPending from '$lib/components/layout/Overlay/AccountPending.svelte';
 	import UpdateInfoToast from '$lib/components/layout/UpdateInfoToast.svelte';
-	import Spinner from '$lib/components/common/Spinner.svelte';
+	import PageLoader from '$lib/components/common/PageLoader.svelte';
 	import { loadKeybindings, matchKeybinding, Shortcut } from '$lib/shortcuts';
 
 	const i18n = getContext('i18n');
@@ -522,11 +522,11 @@
 					</main>
 				{:else}
 					<div
-						class="w-full flex-1 h-full flex items-center justify-center {$showSidebar
+						class="w-full flex-1 h-full {$showSidebar
 							? '  md:max-w-[calc(100%-var(--sidebar-width))]'
 							: ' '}"
 					>
-						<Spinner className="size-5" />
+						<PageLoader />
 					</div>
 				{/if}
 			{/if}

@@ -12,8 +12,10 @@
 		showControls,
 		showSidebar,
 		temporaryChatEnabled,
+		theme,
 		user
 	} from '$lib/stores';
+	import { setTheme } from '$lib/utils/theme';
 
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/stores';
@@ -35,6 +37,8 @@
 	import ChatPlus from '../icons/ChatPlus.svelte';
 	import ChatCheck from '../icons/ChatCheck.svelte';
 	import Knobs from '../icons/Knobs.svelte';
+	import Sun from '../icons/Sun.svelte';
+	import Moon from '../icons/Moon.svelte';
 	import { isTemporaryChatId } from '$lib/utils/chatId';
 
 	const i18n = getContext('i18n');
@@ -62,6 +66,13 @@
 			return [];
 		}
 	};
+
+	$: isDark =
+		$theme === 'dark' ||
+		$theme === 'oled-dark' ||
+		($theme === 'system' &&
+			typeof window !== 'undefined' &&
+			window.matchMedia('(prefers-color-scheme: dark)').matches);
 
 	let showShareChatModal = false;
 	let showDownloadChatModal = false;
@@ -243,6 +254,20 @@
 							</button>
 						</Tooltip>
 					{/if}
+
+					<Tooltip content={isDark ? $i18n.t('Light') : $i18n.t('Dark')}>
+						<button
+							class="flex size-8 cursor-pointer items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100/60 hover:text-upb-navy dark:text-gray-400 dark:hover:bg-gray-800/40 dark:hover:text-gray-200"
+							on:click={() => setTheme(isDark ? 'light' : 'dark')}
+							aria-label={$i18n.t('Theme')}
+						>
+							{#if isDark}
+								<Moon className="size-5" strokeWidth="1.5" />
+							{:else}
+								<Sun className="size-5" strokeWidth="1.5" />
+							{/if}
+						</button>
+					</Tooltip>
 				</div>
 			</div>
 		</div>

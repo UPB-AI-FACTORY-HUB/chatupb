@@ -15,6 +15,14 @@
 	--color-gray-850: oklch(0.27 0 0);
 	--color-gray-900: oklch(0.2 0 0);
 	--color-gray-950: oklch(0.16 0 0);
+
+	/* UPB brand */
+	--color-upb-50: #f1f5fd;
+	--color-upb-100: #e3ebfa;
+	--color-upb-200: #c9d7f4;
+	--color-upb-blue: #1f4fc8;
+	--color-upb-navy: #160660;
+	--color-upb-gold: #fdb813;
 }
 
 /*

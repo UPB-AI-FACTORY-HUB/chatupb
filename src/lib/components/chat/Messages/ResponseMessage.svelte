@@ -37,11 +37,10 @@
 		removeDetails,
 		removeAllDetails
 	} from '$lib/utils';
-	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
+	import { WEBUI_BASE_URL } from '$lib/constants';
 	import equal from 'fast-deep-equal';
 
 	import Name from './Name.svelte';
-	import ProfileImage from './ProfileImage.svelte';
 	import Skeleton from './Skeleton.svelte';
 	import Image from '$lib/components/common/Image.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
@@ -660,18 +659,28 @@
 		dir={$settings.chatDirection}
 		style="scroll-margin-top: 3rem;"
 	>
-		<div class={`shrink-0 ltr:mr-2 rtl:ml-2 hidden @lg:flex mt-0.5 `}>
-			<ProfileImage
-				src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${model?.id}&lang=${$i18n.language}`}
-				className={'size-7 assistant-message-profile-image'}
-			/>
+		<div class={`shrink-0 ltr:mr-3 rtl:ml-3 hidden @lg:flex`}>
+			<div
+				class="flex size-10 items-center justify-center rounded-full bg-white ring-1 ring-upb-100 shadow-sm dark:bg-gray-850 dark:ring-gray-800"
+			>
+				<img
+					src="{WEBUI_BASE_URL}/static/mascot.png"
+					class="size-8 object-contain assistant-message-profile-image"
+					alt=""
+					aria-hidden="true"
+					draggable="false"
+				/>
+			</div>
 		</div>
 
 		<div class="flex-auto w-0 pl-1 relative">
 			{#if !compactPreview}
 				<Name>
 					<Tooltip content={model?.name ?? message.model} placement="top-start">
-						<span id="response-message-model-name" class="line-clamp-1 text-black dark:text-white">
+						<span
+							id="response-message-model-name"
+							class="line-clamp-1 font-semibold text-upb-navy dark:text-white"
+						>
 							{model?.name ?? message.model}
 						</span>
 					</Tooltip>
@@ -810,7 +819,10 @@
 
 						<div
 							bind:this={contentContainerElement}
-							class="w-full flex flex-col relative {edit ? 'hidden' : ''}"
+							class="w-full flex flex-col relative {edit ? 'hidden' : ''} {hasResponseContent &&
+							message.error !== true
+								? 'mt-1 rounded-2xl rounded-tl-md border border-gray-100 bg-white px-5 py-3.5 shadow-[0_8px_30px_-16px_rgba(22,6,96,0.18)] dark:border-gray-800 dark:bg-gray-850/40 dark:shadow-none'
+								: ''}"
 							id="response-content-container"
 						>
 							{#if !hasResponseContent && !message.done && !message.error && !hasVisibleStatus}

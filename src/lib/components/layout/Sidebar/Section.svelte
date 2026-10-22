@@ -15,7 +15,7 @@
 	export let collapsible = true;
 	export let className = '';
 	export let buttonClassName = '';
-	export let contentClassName = 'px-1.5';
+	export let contentClassName = 'px-3';
 	export let onAddLabel = '';
 	export let onAdd: null | AddHandler = null;
 	export let dragAndDrop = true;
@@ -125,10 +125,10 @@
 
 		{#if collapsible}
 			<Collapsible bind:open className="w-full" buttonClassName="w-full" onChange={setOpen}>
-				<div class="flex items-center justify-between h-6 w-full pl-3.5 pr-1.5 shrink-0">
+				<div class="flex items-center justify-between h-8 w-full pl-6 pr-3 shrink-0">
 					<button
 						type="button"
-						class="group flex flex-1 h-full items-center gap-1 text-left text-xs text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400 transition-colors duration-100 {buttonClassName}"
+						class="group flex flex-1 h-full items-center gap-1 text-left text-[13px] text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-400 transition-colors duration-100 {buttonClassName}"
 						aria-expanded={open}
 						aria-controls="{id}-content"
 						on:pointerup|stopPropagation

@@ -14,7 +14,7 @@
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import VideoInputMenu from './CallOverlay/VideoInputMenu.svelte';
 	import { KokoroWorker } from '$lib/workers/KokoroWorker';
-	import { WEBUI_API_BASE_URL } from '$lib/constants';
+	import { WEBUI_BASE_URL } from '$lib/constants';
 
 	const i18n = getContext('i18n');
 
@@ -761,90 +761,23 @@
 
 		await stopAllAudio();
 	});
+
+	const controlClass =
+		'flex size-12 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:bg-upb-50 hover:text-upb-navy dark:bg-gray-850 dark:text-gray-200 dark:ring-gray-800 dark:hover:bg-gray-800';
+
+	// Drives the halo rings: follows the mic level while listening, rests otherwise
+	$: ringLevel = !loading && !assistantSpeaking && !muted ? Math.min(rmsLevel * 100, 5) : 0;
 </script>
 
 {#if $showCallOverlay}
-	<div class="max-w-lg w-full h-full max-h-[100dvh] flex flex-col justify-between p-3 md:p-6">
-		{#if camera}
-			<button
-				type="button"
-				class="flex justify-center items-center w-full h-20 min-h-20"
-				on:click={() => {
-					if (assistantSpeaking) {
-						stopAllAudio();
-					}
-				}}
-			>
-				{#if emoji}
-					<div
-						class="  transition-all rounded-full"
-						style="font-size:{rmsLevel * 100 > 4
-							? '4.5'
-							: rmsLevel * 100 > 2
-								? '4.25'
-								: rmsLevel * 100 > 1
-									? '3.75'
-									: '3.5'}rem;width: 100%; text-align:center;"
-					>
-						{emoji}
-					</div>
-				{:else if loading || assistantSpeaking}
-					<svg
-						class="size-12 text-gray-900 dark:text-gray-400"
-						viewBox="0 0 24 24"
-						fill="currentColor"
-						xmlns="http://www.w3.org/2000/svg"
-						><style>
-							.spinner_qM83 {
-								animation: spinner_8HQG 1.05s infinite;
-							}
-							.spinner_oXPr {
-								animation-delay: 0.1s;
-							}
-							.spinner_ZTLf {
-								animation-delay: 0.2s;
-							}
-							@keyframes spinner_8HQG {
-								0%,
-								57.14% {
-									animation-timing-function: cubic-bezier(0.33, 0.66, 0.66, 1);
-									transform: translate(0);
-								}
-								28.57% {
-									animation-timing-function: cubic-bezier(0.33, 0, 0.66, 0.33);
-									transform: translateY(-6px);
-								}
-								100% {
-									transform: translate(0);
-								}
-							}
-						</style><circle class="spinner_qM83" cx="4" cy="12" r="3" /><circle
-							class="spinner_qM83 spinner_oXPr"
-							cx="12"
-							cy="12"
-							r="3"
-						/><circle class="spinner_qM83 spinner_ZTLf" cx="20" cy="12" r="3" /></svg
-					>
-				{:else}
-					<div
-						class=" {rmsLevel * 100 > 4
-							? ' size-[4.5rem]'
-							: rmsLevel * 100 > 2
-								? ' size-16'
-								: rmsLevel * 100 > 1
-									? 'size-14'
-									: 'size-12'}  transition-all rounded-full bg-cover bg-center bg-no-repeat"
-						style={`background-image: url('${WEBUI_API_BASE_URL}/models/model/profile/image?id=${model?.id}&lang=${$i18n.language}&voice=true');`}
-					/>
-				{/if}
-				<!-- navbar -->
-			</button>
-		{/if}
-
-		<div class="flex justify-center items-center flex-1 h-full w-full max-h-full">
-			{#if !camera}
+	<div
+		class="w-full h-full max-h-[100dvh] flex justify-center bg-linear-to-b from-upb-50 via-white to-white dark:from-gray-900 dark:via-gray-900 dark:to-gray-900"
+	>
+		<div class="max-w-lg w-full h-full max-h-[100dvh] flex flex-col justify-between p-3 md:p-6">
+			{#if camera}
 				<button
 					type="button"
+					class="flex justify-center items-center w-full h-20 min-h-20"
 					on:click={() => {
 						if (assistantSpeaking) {
 							stopAllAudio();
@@ -855,270 +788,304 @@
 						<div
 							class="  transition-all rounded-full"
 							style="font-size:{rmsLevel * 100 > 4
-								? '13'
+								? '4.5'
 								: rmsLevel * 100 > 2
-									? '12'
+									? '4.25'
 									: rmsLevel * 100 > 1
-										? '11.5'
-										: '11'}rem;width:100%;text-align:center;"
+										? '3.75'
+										: '3.5'}rem;width: 100%; text-align:center;"
 						>
 							{emoji}
 						</div>
-					{:else if loading || assistantSpeaking}
-						<svg
-							class="size-44 text-gray-900 dark:text-gray-400"
-							viewBox="0 0 24 24"
-							fill="currentColor"
-							xmlns="http://www.w3.org/2000/svg"
-							><style>
-								.spinner_qM83 {
-									animation: spinner_8HQG 1.05s infinite;
-								}
-								.spinner_oXPr {
-									animation-delay: 0.1s;
-								}
-								.spinner_ZTLf {
-									animation-delay: 0.2s;
-								}
-								@keyframes spinner_8HQG {
-									0%,
-									57.14% {
-										animation-timing-function: cubic-bezier(0.33, 0.66, 0.66, 1);
-										transform: translate(0);
-									}
-									28.57% {
-										animation-timing-function: cubic-bezier(0.33, 0, 0.66, 0.33);
-										transform: translateY(-6px);
-									}
-									100% {
-										transform: translate(0);
-									}
-								}
-							</style><circle class="spinner_qM83" cx="4" cy="12" r="3" /><circle
-								class="spinner_qM83 spinner_oXPr"
-								cx="12"
-								cy="12"
-								r="3"
-							/><circle class="spinner_qM83 spinner_ZTLf" cx="20" cy="12" r="3" /></svg
-						>
 					{:else}
 						<div
-							class=" {rmsLevel * 100 > 4
-								? ' size-52'
-								: rmsLevel * 100 > 2
-									? 'size-48'
-									: rmsLevel * 100 > 1
-										? 'size-44'
-										: 'size-40'} transition-all rounded-full bg-cover bg-center bg-no-repeat"
-							style={`background-image: url('${WEBUI_API_BASE_URL}/models/model/profile/image?id=${model?.id}&lang=${$i18n.language}&voice=true');`}
-						/>
+							class="flex size-16 items-center justify-center rounded-full bg-white shadow-sm transition dark:bg-gray-850 {assistantSpeaking
+								? 'ring-2 ring-upb-gold'
+								: 'ring-1 ring-upb-100 dark:ring-gray-800'} {muted ? 'grayscale opacity-60' : ''}"
+							style="transform: scale({1 + ringLevel * 0.03})"
+						>
+							<img
+								src="{WEBUI_BASE_URL}/static/mascot.png"
+								alt=""
+								class="size-12 object-contain {loading ? 'animate-pulse' : ''}"
+								draggable="false"
+							/>
+						</div>
 					{/if}
 				</button>
-			{:else}
-				<div class="relative flex video-container w-full max-h-full pt-2 pb-4 md:py-6 px-2 h-full">
-					<!-- svelte-ignore a11y-media-has-caption -->
-					<video
-						id="camera-feed"
-						autoplay
-						class="rounded-2xl h-full min-w-full object-cover object-center"
-						playsinline
-					/>
-
-					<canvas id="camera-canvas" style="display:none;" />
-
-					<div class=" absolute top-4 md:top-8 left-4">
-						<button
-							type="button"
-							aria-label={$i18n.t('Stop camera')}
-							class="p-1.5 text-white cursor-pointer backdrop-blur-xl bg-black/10 rounded-full"
-							on:click={() => {
-								stopCamera();
-							}}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 16 16"
-								fill="currentColor"
-								class="size-6"
-							>
-								<path
-									d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z"
-								/>
-							</svg>
-						</button>
-					</div>
-				</div>
 			{/if}
-		</div>
 
-		<div class="flex flex-col items-center gap-4 pb-4 w-full">
-			<button
-				type="button"
-				class="z-10"
-				on:click={() => {
-					if (assistantSpeaking) {
-						stopAllAudio();
-					}
-				}}
-			>
-				<div class="line-clamp-1 text-sm font-normal">
-					{#if loading}
-						{$i18n.t('Thinking...')}
-					{:else if muted}
-						{$i18n.t('Muted')}
-					{:else if assistantSpeaking}
-						{$i18n.t('Tap to interrupt')}
-					{:else}
-						{$i18n.t('Listening...')}
-					{/if}
-				</div>
-			</button>
-
-			<div class="flex items-center justify-center gap-4 z-10">
-				{#if camera}
-					<VideoInputMenu
-						devices={videoInputDevices}
-						on:change={async (e) => {
-							console.log(e.detail);
-							selectedVideoInputDeviceId = e.detail;
-							localStorage.setItem('selectedVideoInputDeviceId', e.detail);
-							await stopVideoStream();
-							await startVideoStream();
+			<div class="flex justify-center items-center flex-1 h-full w-full max-h-full">
+				{#if !camera}
+					<button
+						type="button"
+						class="relative flex size-72 items-center justify-center"
+						aria-label={assistantSpeaking ? $i18n.t('Tap to interrupt') : undefined}
+						on:click={() => {
+							if (assistantSpeaking) {
+								stopAllAudio();
+							}
 						}}
 					>
+						<!-- halo rings: follow the mic level while listening, pulse gold while the assistant speaks -->
+						<span
+							class="absolute inset-0 rounded-full transition-transform duration-150 {assistantSpeaking
+								? 'bg-upb-gold/10'
+								: 'bg-upb-blue/[0.06] dark:bg-upb-blue/10'} {loading ? 'animate-pulse' : ''}"
+							style="transform: scale({0.86 + ringLevel * 0.06})"
+						></span>
+						<span
+							class="absolute inset-8 rounded-full transition-transform duration-150 {assistantSpeaking
+								? 'bg-upb-gold/15'
+								: 'bg-upb-blue/[0.08] dark:bg-upb-blue/15'}"
+							style="transform: scale({0.92 + ringLevel * 0.04})"
+						></span>
+						{#if assistantSpeaking}
+							<span class="absolute inset-16 rounded-full bg-upb-gold/25 animate-ping"></span>
+						{/if}
+
+						<div
+							class="relative flex size-44 items-center justify-center rounded-full bg-white ring-1 ring-upb-100 shadow-[0_20px_60px_-20px_rgba(22,6,96,0.35)] transition dark:bg-gray-850 dark:ring-gray-800 dark:shadow-none {muted
+								? 'grayscale opacity-60'
+								: ''}"
+						>
+							{#if emoji}
+								<div class="text-[5.5rem] leading-none">{emoji}</div>
+							{:else}
+								<img
+									src="{WEBUI_BASE_URL}/static/mascot.png"
+									alt=""
+									class="size-32 object-contain"
+									draggable="false"
+								/>
+							{/if}
+						</div>
+					</button>
+				{:else}
+					<div
+						class="relative flex video-container w-full max-h-full pt-2 pb-4 md:py-6 px-2 h-full"
+					>
+						<!-- svelte-ignore a11y-media-has-caption -->
+						<video
+							id="camera-feed"
+							autoplay
+							class="rounded-2xl h-full min-w-full object-cover object-center ring-1 ring-upb-100 dark:ring-gray-800"
+							playsinline
+						/>
+
+						<canvas id="camera-canvas" style="display:none;" />
+
+						<div class=" absolute top-4 md:top-8 left-4">
+							<button
+								type="button"
+								aria-label={$i18n.t('Stop camera')}
+								class="p-1.5 text-white cursor-pointer backdrop-blur-xl bg-black/10 rounded-full"
+								on:click={() => {
+									stopCamera();
+								}}
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 16 16"
+									fill="currentColor"
+									class="size-6"
+								>
+									<path
+										d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z"
+									/>
+								</svg>
+							</button>
+						</div>
+					</div>
+				{/if}
+			</div>
+
+			<div class="flex flex-col items-center gap-5 pb-4 w-full">
+				<button
+					type="button"
+					class="z-10 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-1.5 text-sm text-gray-700 shadow-sm ring-1 ring-gray-100 backdrop-blur dark:bg-white/5 dark:text-gray-300 dark:ring-gray-800"
+					on:click={() => {
+						if (assistantSpeaking) {
+							stopAllAudio();
+						}
+					}}
+				>
+					{#if loading}
+						<span class="flex items-center gap-1" aria-hidden="true">
+							<span class="size-1.5 rounded-full bg-upb-blue animate-bounce [animation-delay:-0.3s]"
+							></span>
+							<span
+								class="size-1.5 rounded-full bg-upb-gold animate-bounce [animation-delay:-0.15s]"
+							></span>
+							<span class="size-1.5 rounded-full bg-upb-navy animate-bounce dark:bg-white"></span>
+						</span>
+					{:else}
+						<span
+							class="size-2 rounded-full {muted
+								? 'bg-red-500'
+								: assistantSpeaking
+									? 'bg-upb-gold'
+									: 'bg-upb-blue animate-pulse'}"
+							aria-hidden="true"
+						></span>
+					{/if}
+					<span class="line-clamp-1">
+						{#if loading}
+							{$i18n.t('Thinking...')}
+						{:else if muted}
+							{$i18n.t('Muted')}
+						{:else if assistantSpeaking}
+							{$i18n.t('Tap to interrupt')}
+						{:else}
+							{$i18n.t('Listening...')}
+						{/if}
+					</span>
+				</button>
+
+				<div class="flex items-center justify-center gap-4 z-10">
+					{#if camera}
+						<VideoInputMenu
+							devices={videoInputDevices}
+							on:change={async (e) => {
+								console.log(e.detail);
+								selectedVideoInputDeviceId = e.detail;
+								localStorage.setItem('selectedVideoInputDeviceId', e.detail);
+								await stopVideoStream();
+								await startVideoStream();
+							}}
+						>
+							<button aria-label={$i18n.t('Switch camera')} class={controlClass} type="button">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 20 20"
+									fill="currentColor"
+									class="size-5"
+								>
+									<path
+										fill-rule="evenodd"
+										d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z"
+										clip-rule="evenodd"
+									/>
+								</svg>
+							</button>
+						</VideoInputMenu>
+					{:else}
+						<Tooltip content={$i18n.t('Camera')}>
+							<button
+								aria-label={$i18n.t('Camera')}
+								class={controlClass}
+								type="button"
+								on:click={async () => {
+									await navigator.mediaDevices.getUserMedia({ video: true });
+									startCamera();
+								}}
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									stroke="currentColor"
+									class="size-5"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"
+									/>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z"
+									/>
+								</svg>
+							</button>
+						</Tooltip>
+					{/if}
+
+					<Tooltip content={muted ? $i18n.t('Unmute') + ' (M)' : $i18n.t('Mute') + ' (M)'}>
 						<button
-							aria-label={$i18n.t('Switch camera')}
-							class="p-3 rounded-full bg-gray-50 dark:bg-gray-900"
+							class={muted
+								? 'flex size-12 items-center justify-center rounded-full bg-red-50 text-red-600 ring-1 ring-red-200 transition dark:bg-red-500/15 dark:text-red-300 dark:ring-red-500/30'
+								: controlClass}
+							type="button"
+							aria-label={muted ? $i18n.t('Unmute') : $i18n.t('Mute')}
+							on:click={toggleMute}
+						>
+							{#if muted}
+								<!-- Mic Off icon -->
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									stroke="currentColor"
+									class="size-5"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"
+									/>
+									<line
+										x1="3"
+										y1="3"
+										x2="21"
+										y2="21"
+										stroke="currentColor"
+										stroke-width="1.5"
+										stroke-linecap="round"
+									/>
+								</svg>
+							{:else}
+								<!-- Mic On icon -->
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									stroke="currentColor"
+									class="size-5"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"
+									/>
+								</svg>
+							{/if}
+						</button>
+					</Tooltip>
+
+					<Tooltip content={$i18n.t('End call')}>
+						<button
+							aria-label={$i18n.t('End call')}
+							class="flex size-14 items-center justify-center rounded-full bg-red-500 text-white shadow-md shadow-red-500/25 transition hover:bg-red-600"
+							on:click={async () => {
+								await stopAudioStream();
+								await stopVideoStream();
+
+								console.log(audioStream);
+								console.log(cameraStream);
+
+								showCallOverlay.set(false);
+								dispatch('close');
+							}}
 							type="button"
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								viewBox="0 0 20 20"
 								fill="currentColor"
-								class="size-5"
+								class="size-6"
 							>
 								<path
-									fill-rule="evenodd"
-									d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z"
-									clip-rule="evenodd"
-								/>
-							</svg>
-						</button>
-					</VideoInputMenu>
-				{:else}
-					<Tooltip content={$i18n.t('Camera')}>
-						<button
-							aria-label={$i18n.t('Camera')}
-							class="p-3 rounded-full bg-gray-50 dark:bg-gray-900"
-							type="button"
-							on:click={async () => {
-								await navigator.mediaDevices.getUserMedia({ video: true });
-								startCamera();
-							}}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-								stroke="currentColor"
-								class="size-5"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"
-								/>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z"
+									d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"
 								/>
 							</svg>
 						</button>
 					</Tooltip>
-				{/if}
-
-				<Tooltip content={muted ? $i18n.t('Unmute') + ' (M)' : $i18n.t('Mute') + ' (M)'}>
-					<button
-						class="p-3 rounded-full transition-colors duration-200 {muted
-							? 'bg-red-500 text-white'
-							: 'bg-gray-50 dark:bg-gray-900'}"
-						type="button"
-						aria-label={muted ? $i18n.t('Unmute') : $i18n.t('Mute')}
-						on:click={toggleMute}
-					>
-						{#if muted}
-							<!-- Mic Off icon -->
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-								stroke="currentColor"
-								class="size-5"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"
-								/>
-								<line
-									x1="3"
-									y1="3"
-									x2="21"
-									y2="21"
-									stroke="currentColor"
-									stroke-width="1.5"
-									stroke-linecap="round"
-								/>
-							</svg>
-						{:else}
-							<!-- Mic On icon -->
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-								stroke="currentColor"
-								class="size-5"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"
-								/>
-							</svg>
-						{/if}
-					</button>
-				</Tooltip>
-
-				<button
-					aria-label={$i18n.t('End call')}
-					class="p-3 rounded-full bg-gray-50 dark:bg-gray-900"
-					on:click={async () => {
-						await stopAudioStream();
-						await stopVideoStream();
-
-						console.log(audioStream);
-						console.log(cameraStream);
-
-						showCallOverlay.set(false);
-						dispatch('close');
-					}}
-					type="button"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 20 20"
-						fill="currentColor"
-						class="size-5"
-					>
-						<path
-							d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"
-						/>
-					</svg>
-				</button>
+				</div>
 			</div>
 		</div>
 	</div>

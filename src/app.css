@@ -25,9 +25,9 @@ html {
 
 #sidebar-chat-item {
 	/* sidebar item sizing scales for the chat list entries */
-	min-height: calc(32px * var(--app-text-scale, 1));
-	padding-inline: calc(11px * var(--app-text-scale, 1));
-	padding-block: calc(6px * var(--app-text-scale, 1));
+	min-height: calc(38px * var(--app-text-scale, 1));
+	padding-inline: calc(12px * var(--app-text-scale, 1));
+	padding-block: calc(8px * var(--app-text-scale, 1));
 }
 
 #sidebar-chat-item div[dir='auto'] {
@@ -107,6 +107,20 @@ textarea::-webkit-scrollbar-corner {
 
 .markdown-prose {
 	@apply prose prose-sm dark:prose-invert max-w-none break-words !text-[0.9375rem] font-normal leading-relaxed prose-p:mt-0 prose-p:mb-2 prose-p:font-normal prose-p:leading-relaxed prose-headings:mt-2 prose-headings:mb-1 prose-headings:font-normal prose-headings:leading-snug prose-h1:text-xl prose-h2:text-lg prose-h3:text-base prose-strong:font-medium prose-code:before:content-none prose-code:after:content-none prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-li:font-normal prose-pre:my-3 prose-table:my-0 prose-blockquote:my-3 prose-blockquote:font-normal prose-hr:my-4 prose-hr:border-gray-50 prose-hr:dark:border-gray-850/30 prose-img:my-2 [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_p:first-child]:mt-0 [&_h1:first-child]:mt-0 [&_h2:first-child]:mt-0 [&_h3:first-child]:mt-0 [&_h4:first-child]:mt-0 [&_h5:first-child]:mt-0 [&_h6:first-child]:mt-0;
+}
+
+/* user messages sit on a solid brand-blue bubble */
+.markdown-prose.user-bubble-prose {
+	--tw-prose-body: #fff;
+	--tw-prose-headings: #fff;
+	--tw-prose-bold: #fff;
+	--tw-prose-links: #fff;
+	--tw-prose-code: #fff;
+	--tw-prose-quotes: #fff;
+	--tw-prose-counters: rgb(255 255 255 / 0.8);
+	--tw-prose-bullets: rgb(255 255 255 / 0.7);
+	--tw-prose-quote-borders: rgb(255 255 255 / 0.4);
+	color: #fff;
 }
 
 .markdown-prose-sm {

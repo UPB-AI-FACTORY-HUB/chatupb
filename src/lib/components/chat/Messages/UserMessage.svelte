@@ -374,15 +374,19 @@
 				<div class="w-full">
 					<div class="flex {($settings?.chatBubble ?? true) ? 'justify-end pb-1' : 'w-full'}">
 						<div
-							class="rounded-3xl {($settings?.chatBubble ?? true)
-								? `max-w-[90%] px-4 py-1.5  bg-gray-50 dark:bg-gray-850 ${
+							class="rounded-[1.25rem] {($settings?.chatBubble ?? true)
+								? `max-w-[85%] px-4 py-2.5 rounded-br-md bg-upb-blue text-white shadow-[0_6px_20px_-8px_rgba(31,79,200,0.45)] ${
 										message.files ? 'rounded-tr-lg' : ''
 									}`
 								: ' w-full'}"
 						>
 							{#if message.content}
 								{#if $settings?.renderMarkdownInUserMessages ?? true}
-									<div class="markdown-prose">
+									<div
+										class="markdown-prose {($settings?.chatBubble ?? true)
+											? 'user-bubble-prose'
+											: ''}"
+									>
 										<Markdown
 											id={`${chatId}-${message.id}`}
 											content={message.content}

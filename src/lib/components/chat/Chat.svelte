@@ -112,7 +112,7 @@
 	import Placeholder from './Placeholder.svelte';
 	import FilesOverlay from './MessageInput/FilesOverlay.svelte';
 	import NotificationToast from '../NotificationToast.svelte';
-	import Spinner from '../common/Spinner.svelte';
+	import PageLoader from '../common/PageLoader.svelte';
 	import Modal from '../common/Modal.svelte';
 	import { isEmbedWindow } from '../common/FullHeightIframe.svelte';
 	import Sidebar from '../icons/Sidebar.svelte';
@@ -475,7 +475,6 @@
 		resetInput();
 		oldSelectedModelIds = structuredClone(selectedModelIds);
 	};
-
 
 	$: if (chatIdProp && chatIdProp !== loadedChatIdProp) {
 		loadedChatIdProp = chatIdProp;
@@ -1872,7 +1871,6 @@
 			chatVariables = chat?.variables ?? {};
 
 			if (chatContent) {
-
 				selectedModels =
 					(chatContent?.models ?? undefined) !== undefined
 						? chatContent.models
@@ -3651,7 +3649,7 @@
 				<div
 					class="absolute top-0 left-0 w-full h-full bg-linear-to-t from-white to-white/85 dark:from-gray-900 dark:to-gray-900/90 z-0"
 				/>
-			{:else if ($settings?.backgroundImageUrl ?? $config?.license_metadata?.background_image_url ?? null)}
+			{:else if $settings?.backgroundImageUrl ?? $config?.license_metadata?.background_image_url ?? null}
 				<div
 					class="absolute top-0 left-0 w-full h-full bg-cover bg-center bg-no-repeat"
 					style="background-image: url({$settings?.backgroundImageUrl ??
@@ -3778,9 +3776,7 @@
 									</div>
 								</div>
 							{:else}
-								<div
-									class=" pb-2 {dragged ? 'z-0' : 'z-10'}"
-								>
+								<div class=" pb-2 {dragged ? 'z-0' : 'z-10'}">
 									<MessageInput
 										bind:this={messageInput}
 										{history}
@@ -3944,11 +3940,7 @@
 			</PaneGroup>
 		</div>
 	{:else if loading}
-		<div class=" flex items-center justify-center h-full w-full">
-			<div class="m-auto">
-				<Spinner className="size-5" />
-			</div>
-		</div>
+		<PageLoader />
 	{/if}
 </div>
 

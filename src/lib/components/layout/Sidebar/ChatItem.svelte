@@ -37,7 +37,6 @@
 		showSidebar,
 		tags,
 		selectedFolder,
-		settings,
 		user
 	} from '$lib/stores';
 	import { refreshChatList } from '$lib/stores/chatList';
@@ -503,15 +502,11 @@
 	{#if confirmEdit}
 		<div
 			id="sidebar-chat-item"
-			class=" w-full flex justify-between rounded-xl px-2 py-[6px] {id === $chatId || confirmEdit
-				? ($settings?.highContrastMode ?? false)
-					? 'bg-black/[0.035] dark:bg-white/[0.06] selected'
-					: 'bg-black/[0.035] dark:bg-white/[0.045] selected'
-				: selected
-					? ($settings?.highContrastMode ?? false)
-						? 'bg-black/[0.035] dark:bg-white/[0.055] selected'
-						: 'bg-black/[0.035] dark:bg-white/[0.045] selected'
-					: 'hover:bg-gray-50 dark:hover:bg-gray-900 group-hover:bg-gray-50 dark:group-hover:bg-gray-900'}  whitespace-nowrap text-ellipsis relative transition {generating
+			class=" w-full flex justify-between rounded-xl px-2 py-[6px] {id === $chatId ||
+			confirmEdit ||
+			selected
+				? 'bg-upb-100/70 text-upb-navy dark:bg-white/[0.06] dark:text-white selected'
+				: 'hover:bg-upb-50 dark:hover:bg-gray-900 group-hover:bg-upb-50 dark:group-hover:bg-gray-900'}  whitespace-nowrap text-ellipsis relative transition {generating
 				? 'cursor-not-allowed'
 				: ''}"
 		>
@@ -548,15 +543,11 @@
 		>
 			<LinkPreview.Trigger
 				id="sidebar-chat-item"
-				class=" w-full flex justify-between rounded-xl px-2 py-[6px] {id === $chatId || confirmEdit
-					? ($settings?.highContrastMode ?? false)
-						? 'bg-black/[0.035] dark:bg-white/[0.06] selected'
-						: 'bg-black/[0.035] dark:bg-white/[0.045] selected'
-					: selected
-						? ($settings?.highContrastMode ?? false)
-							? 'bg-black/[0.035] dark:bg-white/[0.055] selected'
-							: 'bg-black/[0.035] dark:bg-white/[0.045] selected'
-						: ' hover:bg-gray-50 dark:hover:bg-gray-900 group-hover:bg-gray-50 dark:group-hover:bg-gray-900'}  whitespace-nowrap text-ellipsis transition"
+				class=" w-full flex justify-between rounded-xl px-2 py-[6px] {id === $chatId ||
+				confirmEdit ||
+				selected
+					? 'bg-upb-100/70 text-upb-navy dark:bg-white/[0.06] dark:text-white selected'
+					: ' hover:bg-upb-50 dark:hover:bg-gray-900 group-hover:bg-upb-50 dark:group-hover:bg-gray-900'}  whitespace-nowrap text-ellipsis transition"
 				href="/c/{id}"
 				aria-current={id === $chatId ? 'page' : undefined}
 				onclick={() => {
@@ -597,8 +588,12 @@
 
 				<!-- Loading spinner for active chat (left side) -->
 				{#if active}
-					<div class="shrink-0 self-center pr-2">
-						<Spinner className="size-3" />
+					<div class="shrink-0 self-center flex size-5 items-center justify-center mr-3">
+						<Spinner className="size-3.5" />
+					</div>
+				{:else if !ownerUserId}
+					<div class="shrink-0 self-center mr-3">
+						<ChatIcon className="size-5" strokeWidth="1.5" />
 					</div>
 				{/if}
 
@@ -620,7 +615,7 @@
 
 				<!-- Time ago indicator -->
 				{#if (updatedAt ?? createdAt) && !showInlineActions}
-					<div class="shrink-0 self-center text-[10px] text-gray-400 dark:text-gray-500 pl-2">
+					<div class="shrink-0 self-center text-[11px] text-gray-400 dark:text-gray-500 pl-2">
 						{formatTimeAgo((updatedAt ?? createdAt) as number)}
 					</div>
 				{/if}

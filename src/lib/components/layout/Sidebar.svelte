@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
 	import { v4 as uuidv4 } from 'uuid';
-	import Sortable from 'sortablejs';
 
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -56,7 +55,6 @@
 		getSharedFolders,
 		updateFolderParentIdById
 	} from '$lib/apis/folders';
-	import { updateUserSettings } from '$lib/apis/users';
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 
 	import UserMenu from './Sidebar/UserMenu.svelte';
@@ -66,7 +64,6 @@
 	import Folder from '../common/Folder.svelte';
 	import SidebarSection from './Sidebar/Section.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
-	import Folders from './Sidebar/Folders.svelte';
 	import SharedFolderItem from './Sidebar/SharedFolderItem.svelte';
 	import { getChannels, createNewChannel } from '$lib/apis/channels';
 	import ChannelModal from './Sidebar/ChannelModal.svelte';
@@ -74,9 +71,6 @@
 	import SearchModal from './SearchModal.svelte';
 	import FolderModal from './Sidebar/Folders/FolderModal.svelte';
 	import PinnedModelList from './Sidebar/PinnedModelList.svelte';
-	import CalendarIcon from './Sidebar/icons/Calendar.svelte';
-	import ClockIcon from './Sidebar/icons/Clock.svelte';
-	import CodeIcon from './Sidebar/icons/Code.svelte';
 	import EditPencilIcon from './Sidebar/icons/EditPencil.svelte';
 	import SearchIcon from './Sidebar/icons/Search.svelte';
 	import Sidebar from '../icons/Sidebar.svelte';
@@ -86,9 +80,9 @@
 	import DropdownMenu from '../common/DropdownMenu.svelte';
 	import CheckIcon from '../icons/Check.svelte';
 	import MoreHorizontalIcon from './Sidebar/icons/MoreHorizontal.svelte';
+	import ChevronDown from '../icons/ChevronDown.svelte';
 
 	const BREAKPOINT = 768;
-	const DEFAULT_PINNED_ITEMS = [];
 
 	let scrollTop = 0;
 
@@ -138,72 +132,7 @@
 
 	let sharedFolders: any[] = [];
 
-	$: pinnedItems = $settings?.pinnedMenuItems ?? DEFAULT_PINNED_ITEMS;
-
-	const isMenuItemVisible = (id) => {
-		switch (id) {
-			case 'automations':
-				return (
-					$config?.features?.enable_automations &&
-					($user?.role === 'admin' || $user?.permissions?.features?.automations)
-				);
-			case 'calendar':
-				return (
-					$config?.features?.enable_calendar &&
-					($user?.role === 'admin' || $user?.permissions?.features?.calendar)
-				);
-			case 'playground':
-				return $user?.role === 'admin';
-			default:
-				return false;
-		}
-	};
-
-	const getMenuItemMeta = (id) => {
-		const items = {
-			automations: { label: 'Automations', href: '/automations', iconType: 'automations' },
-			calendar: { label: 'Calendar', href: '/calendar', iconType: 'calendar' },
-			playground: { label: 'Playground', href: '/playground', iconType: 'playground' }
-		};
-		return items[id];
-	};
-
-	const menuItemPathPrefixes = {
-		calendar: '/calendar',
-		automations: '/automations',
-		playground: '/playground'
-	};
-
-	const getActiveMenuItemId = (pathname) => {
-		for (const [id, pathPrefix] of Object.entries(menuItemPathPrefixes)) {
-			if (pathname === pathPrefix || pathname.startsWith(`${pathPrefix}/`)) {
-				return id;
-			}
-		}
-
-		return null;
-	};
-
-	$: activeMenuItemId = getActiveMenuItemId($page.url.pathname);
-
-	const initPinnedMenuSortable = () => {
-		const el = document.getElementById('pinned-menu-items-list');
-		if (el && !$mobile) {
-			new Sortable(el, {
-				animation: 150,
-				onUpdate: async (event) => {
-					const itemId = event.item.dataset.id;
-					const newIndex = event.newIndex;
-					const current = [...pinnedItems];
-					const oldIndex = current.indexOf(itemId);
-					current.splice(oldIndex, 1);
-					current.splice(newIndex, 0, itemId);
-					settings.set({ ...$settings, pinnedMenuItems: current });
-					await updateUserSettings(localStorage.token, { ui: $settings });
-				}
-			});
-		}
-	};
+	$: isHome = $page.url.pathname === '/' && !$chatId && !$selectedFolder;
 
 	$: if ($selectedFolder) {
 		initFolders();
@@ -577,7 +506,7 @@
 		isResizing = true;
 
 		startClientX = e.clientX;
-		startWidth = $sidebarWidth ?? 245;
+		startWidth = $sidebarWidth ?? 280;
 
 		document.body.style.userSelect = 'none';
 	};
@@ -695,9 +624,6 @@
 			return Promise.all(Object.values(folderRegistry).map((folder) => folder?.setFolderItems?.()));
 		});
 
-		await tick();
-		initPinnedMenuSortable();
-
 		return () => {
 			unsubscribers.forEach((unsubscriber) => unsubscriber());
 
@@ -788,17 +714,6 @@
 				showSidebar.set(false);
 			}
 		}, 0);
-	};
-
-	const itemClickHandler = async () => {
-		selectedChatId = null;
-		chatId.set('');
-
-		if ($mobile) {
-			showSidebar.set(false);
-		}
-
-		await tick();
 	};
 
 	const isWindows = /Windows/i.test(navigator.userAgent);
@@ -978,45 +893,6 @@
 						</button>
 					</Tooltip>
 				</div>
-
-				{#each pinnedItems as itemId (itemId)}
-					{@const meta = getMenuItemMeta(itemId)}
-					{#if meta && isMenuItemVisible(itemId)}
-						<div class="">
-							<Tooltip content={$i18n.t(meta.label)} placement="right">
-								<a
-									class=" cursor-pointer flex size-8 items-center justify-center transition group"
-									href={meta.href}
-									on:click={async (e) => {
-										e.stopImmediatePropagation();
-										e.preventDefault();
-										goto(meta.href);
-										itemClickHandler();
-									}}
-									draggable="false"
-									aria-label={$i18n.t(meta.label)}
-								>
-									<div
-										class=" self-center flex size-[30px] items-center justify-center rounded-lg transition {itemId ===
-										activeMenuItemId
-											? ($settings?.highContrastMode ?? false)
-												? 'bg-black/[0.035] dark:bg-white/[0.06]'
-												: 'bg-black/[0.035] dark:bg-white/[0.045]'
-											: 'group-hover:bg-gray-50 dark:group-hover:bg-gray-900'}"
-									>
-										{#if itemId === 'automations'}
-											<ClockIcon className="size-4" strokeWidth="1.5" />
-										{:else if itemId === 'calendar'}
-											<CalendarIcon className="size-4" strokeWidth="1.5" />
-										{:else if itemId === 'playground'}
-											<CodeIcon className="size-4" strokeWidth="1.5" />
-										{/if}
-									</div>
-								</a>
-							</Tooltip>
-						</div>
-					{/if}
-				{/each}
 			</div>
 		</button>
 
@@ -1024,7 +900,7 @@
 			<div>
 				<div class=" flex justify-center items-center">
 					{#if $user !== undefined && $user !== null}
-						<UserMenu role={$user?.role} profile={$config?.features?.enable_user_status ?? true}>
+						<UserMenu role={$user?.role}>
 							<button
 								type="button"
 								class=" cursor-pointer flex size-8.5 items-center justify-center transition group"
@@ -1071,50 +947,47 @@
 		role="navigation"
 		aria-label={$i18n.t('Chat history')}
 		class="h-screen max-h-[100dvh] min-h-screen select-none {$showSidebar
-			? `${$mobile ? 'bg-gray-50 dark:bg-gray-950' : 'bg-gray-50/70 dark:bg-gray-950/70'} z-50`
+			? 'bg-white dark:bg-gray-950 z-50'
 			: ' bg-transparent z-0 '} {$isApp
 			? `ml-[4.5rem] md:ml-0 `
-			: ' transition-all duration-300 '} shrink-0 text-gray-700 dark:text-gray-300 text-[13px] leading-5 fixed top-0 left-0 overflow-x-hidden
+			: ' transition-all duration-300 '} shrink-0 text-gray-700 dark:text-gray-300 text-sm leading-5 fixed top-0 left-0 overflow-x-hidden
         "
 		transition:slide={{ duration: 250, axis: 'x' }}
 		data-state={$showSidebar}
 	>
 		<div
-			class=" my-auto flex flex-col justify-between h-screen max-h-[100dvh] w-[var(--sidebar-width)] overflow-x-hidden scrollbar-hidden z-50 border-e border-gray-50 dark:border-gray-850/30 {$showSidebar
+			class=" my-auto flex flex-col justify-between h-screen max-h-[100dvh] w-[var(--sidebar-width)] overflow-x-hidden scrollbar-hidden z-50 border-e border-gray-100 dark:border-gray-850/30 {$showSidebar
 				? ''
 				: 'invisible'}"
 		>
 			<div
-				class="sidebar px-1 pt-1.5 pb-1 flex justify-between space-x-1 text-gray-600 dark:text-gray-400 sticky top-0 z-10 -mb-2"
+				class="sidebar px-3 pt-4 pb-2 flex items-center justify-between gap-1 text-gray-600 dark:text-gray-400 sticky top-0 z-10 -mb-2"
 			>
 				<a
-					class="flex items-center rounded-xl size-8.5 h-full justify-center hover:bg-gray-50 dark:hover:bg-gray-900 transition no-drag-region"
 					href="/"
+					class="flex flex-1 min-w-0 items-center gap-3 px-1 no-drag-region"
 					draggable="false"
 					on:click={newChatHandler}
+					aria-label={$WEBUI_NAME}
 				>
 					<img
-						crossorigin="anonymous"
 						src="{WEBUI_BASE_URL}/static/favicon.png"
-						class="sidebar-new-chat-icon size-5 rounded-full"
-						alt=""
+						class="size-10 shrink-0"
+						alt="UPB"
+						draggable="false"
 					/>
-				</a>
-
-				<a href="/" class="flex flex-1 px-0.5" on:click={newChatHandler}>
-					<div
-						id="sidebar-webui-name"
-						class=" self-center font-normal text-gray-700 dark:text-gray-200"
+					<span
+						class="min-w-0 whitespace-nowrap text-[13px] font-medium leading-[1.25] text-upb-navy dark:text-gray-200"
 					>
-						{$WEBUI_NAME}
-					</div>
+						Universidad<br />Privada Boliviana
+					</span>
 				</a>
 				<Tooltip
 					content={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}
 					placement="bottom"
 				>
 					<button
-						class="flex size-[30px] justify-center items-center rounded-lg hover:bg-gray-50 dark:hover:bg-gray-900 transition {isWindows
+						class="flex size-8 shrink-0 justify-center items-center rounded-lg hover:bg-gray-100/70 dark:hover:bg-gray-900 transition {isWindows
 							? 'cursor-pointer'
 							: 'cursor-[w-resize]'}"
 						on:click={() => {
@@ -1123,7 +996,7 @@
 						aria-label={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}
 					>
 						<div class=" self-center">
-							<Sidebar className="size-4" />
+							<Sidebar className="size-5" />
 						</div>
 					</button>
 				</Tooltip>
@@ -1131,12 +1004,12 @@
 				<div
 					class="{scrollTop > 0
 						? 'visible'
-						: 'invisible'} sidebar-bg-gradient-to-b bg-linear-to-b from-gray-50 dark:from-gray-950 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mb-6"
+						: 'invisible'} sidebar-bg-gradient-to-b bg-linear-to-b from-white dark:from-gray-950 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mb-6"
 				></div>
 			</div>
 
 			<div
-				class="relative flex flex-col flex-1 overflow-y-auto scrollbar-hidden pt-2.5 pb-2.5"
+				class="relative flex flex-col flex-1 overflow-y-auto scrollbar-hidden pt-4 pb-2.5"
 				on:scroll={(e) => {
 					if (e.target.scrollTop === 0) {
 						scrollTop = 0;
@@ -1145,87 +1018,49 @@
 					}
 				}}
 			>
-				<div class="pb-1">
-					<div class="px-1 flex justify-center text-gray-700 dark:text-gray-300">
+				<div class="pb-2 space-y-0.5">
+					<div class="px-3 flex justify-center text-gray-700 dark:text-gray-300">
 						<a
 							id="sidebar-new-chat-button"
-							class="group grow flex items-center space-x-2 rounded-xl px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-900 transition outline-none"
+							class="group grow flex items-center gap-3.5 rounded-xl px-3 py-2.5 transition outline-none {isHome
+								? 'bg-upb-100/70 text-upb-navy dark:bg-white/[0.06] dark:text-white'
+								: 'hover:bg-upb-50 dark:hover:bg-gray-900'}"
 							href="/"
 							draggable="false"
 							on:click={newChatHandler}
 							aria-label={$i18n.t('New Chat')}
 						>
-							<div class="self-center flex size-4 shrink-0 items-center justify-center">
-								<EditPencilIcon className=" size-4" strokeWidth="1.5" />
+							<div class="self-center flex size-5 shrink-0 items-center justify-center">
+								<EditPencilIcon className=" size-5" strokeWidth="1.5" />
 							</div>
 
 							<div class="flex flex-1 self-center translate-y-[0.5px]">
-								<div class=" self-center text-[13px] leading-5">{$i18n.t('New Chat')}</div>
+								<div class=" self-center text-[15px] leading-5">{$i18n.t('New Chat')}</div>
 							</div>
 
 							<HotkeyHint name="newChat" className=" group-hover:visible invisible" />
 						</a>
 					</div>
 
-					<div class="px-1 flex justify-center text-gray-700 dark:text-gray-300">
+					<div class="px-3 flex justify-center text-gray-700 dark:text-gray-300">
 						<button
 							id="sidebar-search-button"
-							class="group grow flex items-center space-x-2 rounded-xl px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-900 transition outline-none"
+							class="group grow flex items-center gap-3.5 rounded-xl px-3 py-2.5 hover:bg-upb-50 dark:hover:bg-gray-900 transition outline-none"
 							on:click={() => {
 								showSearch.set(true);
 							}}
 							draggable="false"
 							aria-label={$i18n.t('Search')}
 						>
-							<div class="self-center flex size-4 shrink-0 items-center justify-center">
-								<SearchIcon strokeWidth="1.5" className="size-4" />
+							<div class="self-center flex size-5 shrink-0 items-center justify-center">
+								<SearchIcon strokeWidth="1.5" className="size-5" />
 							</div>
 
 							<div class="flex flex-1 self-center translate-y-[0.5px]">
-								<div class=" self-center text-[13px] leading-5">{$i18n.t('Search')}</div>
+								<div class=" self-center text-[15px] leading-5">{$i18n.t('Search')}</div>
 							</div>
 							<HotkeyHint name="search" className=" group-hover:visible invisible" />
 						</button>
-					</div>
-
-					<div id="pinned-menu-items-list">
-						{#each pinnedItems as itemId (itemId)}
-							{@const meta = getMenuItemMeta(itemId)}
-							{#if meta && isMenuItemVisible(itemId)}
-								<div
-									class="px-1 flex justify-center text-gray-700 dark:text-gray-300"
-									data-id={itemId}
-								>
-									<a
-										id="sidebar-{itemId}-button"
-										class="grow flex items-center space-x-2 rounded-xl px-2 py-1.5 transition {itemId ===
-										activeMenuItemId
-											? ($settings?.highContrastMode ?? false)
-												? 'bg-black/[0.035] dark:bg-white/[0.06]'
-												: 'bg-black/[0.035] dark:bg-white/[0.045]'
-											: 'hover:bg-gray-50 dark:hover:bg-gray-900'}"
-										href={meta.href}
-										on:click={itemClickHandler}
-										draggable="false"
-										aria-label={$i18n.t(meta.label)}
-									>
-										<div class="self-center flex size-4 shrink-0 items-center justify-center">
-											{#if itemId === 'automations'}
-												<ClockIcon className="size-4" strokeWidth="1.5" />
-											{:else if itemId === 'calendar'}
-												<CalendarIcon className="size-4" strokeWidth="1.5" />
-											{:else if itemId === 'playground'}
-												<CodeIcon className="size-4" strokeWidth="1.5" />
-											{/if}
-										</div>
-
-										<div class="flex self-center translate-y-[0.5px]">
-											<div class=" self-center text-[13px] leading-5">{$i18n.t(meta.label)}</div>
-										</div>
-									</a>
-								</div>
-							{/if}
-						{/each}
 					</div>
 				</div>
 
@@ -1275,64 +1110,10 @@
 					</SidebarSection>
 				{/if}
 
-				{#if $config?.features?.enable_folders && ($user?.role === 'admin' || ($user?.permissions?.features?.folders ?? true))}
-					<SidebarSection
-						id="sidebar-folders"
-						bind:open={showFolders}
-						className="mt-0.5"
-						name={$i18n.t('Folders')}
-						onAdd={() => {
-							showCreateFolderModal = true;
-						}}
-						onAddLabel={$i18n.t('New Folder')}
-						on:drop={async (e) => {
-							const { type, id, item } = e.detail;
-
-							if (type === 'folder') {
-								if (folders[id].parent_id === null) {
-									return;
-								}
-
-								const res = await updateFolderParentIdById(localStorage.token, id, null).catch(
-									(error) => {
-										toast.error(`${error}`);
-										return null;
-									}
-								);
-
-								if (res) {
-									await initFolders();
-								}
-							}
-						}}
-					>
-						<Folders
-							bind:folderRegistry
-							{folders}
-							{shiftKey}
-							onFolderUnreadCounts={applyFolderUnreadCounts}
-							onDelete={(folderId) => {
-								selectedFolder.set(null);
-								initChatList();
-							}}
-							on:update={() => {
-								initChatList();
-							}}
-							on:import={(e) => {
-								const { folderId, items } = e.detail;
-								importChatHandler(items, false, folderId);
-							}}
-							on:change={async () => {
-								initChatList();
-							}}
-						/>
-					</SidebarSection>
-				{/if}
-
 				<SidebarSection
 					id="sidebar-chats"
 					className="mt-0.5"
-					name={$i18n.t('Chats')}
+					name={$i18n.t('Recent chats')}
 					on:change={async (e) => {
 						selectedFolder.set(null);
 					}}
@@ -1522,38 +1303,9 @@
 					{/if}
 
 					<div class=" flex-1 flex flex-col overflow-y-auto scrollbar-hidden">
-						<div class="pt-1.5">
+						<div class="pt-1 space-y-0.5">
 							{#if $chats}
 								{#each $chats as chat, idx (`chat-${chat?.id ?? idx}`)}
-									{#if idx === 0 || (idx > 0 && chat.time_range !== $chats[idx - 1].time_range)}
-										<div
-											class="w-full pl-2.5 text-xs text-gray-500 dark:text-gray-500 font-normal {idx ===
-											0
-												? ''
-												: 'pt-4'} pb-1"
-										>
-											{$i18n.t(chat.time_range)}
-											<!-- localisation keys for time_range to be recognized from the i18next parser (so they don't get automatically removed):
-							{$i18n.t('Today')}
-							{$i18n.t('Yesterday')}
-							{$i18n.t('Previous 7 days')}
-							{$i18n.t('Previous 30 days')}
-							{$i18n.t('January')}
-							{$i18n.t('February')}
-							{$i18n.t('March')}
-							{$i18n.t('April')}
-							{$i18n.t('May')}
-							{$i18n.t('June')}
-							{$i18n.t('July')}
-							{$i18n.t('August')}
-							{$i18n.t('September')}
-							{$i18n.t('October')}
-							{$i18n.t('November')}
-							{$i18n.t('December')}
-							-->
-										</div>
-									{/if}
-
 									<ChatItem
 										className=""
 										id={chat.id}
@@ -1610,26 +1362,24 @@
 				</SidebarSection>
 			</div>
 
-			<div class="px-1 pt-1 pb-1.5 sticky bottom-0 z-10 -mt-2 sidebar">
+			<div
+				class="px-3 pt-2 pb-3 sticky bottom-0 z-10 sidebar border-t border-gray-100 dark:border-gray-850/50 bg-white dark:bg-gray-950"
+			>
 				<div
-					class=" sidebar-bg-gradient-to-t bg-linear-to-t from-gray-50 dark:from-gray-950 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mt-6"
+					class=" sidebar-bg-gradient-to-t bg-linear-to-t from-white dark:from-gray-950 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mt-6"
 				></div>
 				<div class="flex flex-col">
 					{#if $user !== undefined && $user !== null}
-						<UserMenu
-							role={$user?.role}
-							profile={$config?.features?.enable_user_status ?? true}
-							className="w-[calc(var(--sidebar-width)-1rem)]"
-						>
+						<UserMenu role={$user?.role} className="w-[calc(var(--sidebar-width)-1.5rem)]">
 							<button
 								type="button"
-								class=" flex items-center rounded-xl py-1.5 px-1.5 w-full hover:bg-gray-50 dark:hover:bg-gray-900 transition"
+								class="group flex items-center rounded-xl py-2 px-2 w-full hover:bg-upb-50 dark:hover:bg-gray-900 transition"
 								aria-label={$i18n.t('User menu')}
 							>
 								<div class=" self-center mr-3 relative flex-shrink-0">
 									<img
 										src={`${WEBUI_API_BASE_URL}/users/${$user?.id}/profile/image`}
-										class="size-5.5 object-cover rounded-full"
+										class="size-9 object-cover rounded-full"
 										alt={$i18n.t('Open User Profile Menu')}
 										aria-label={$i18n.t('Open User Profile Menu')}
 									/>
@@ -1646,7 +1396,15 @@
 										</div>
 									{/if}
 								</div>
-								<div class=" self-center font-normal truncate">{$user?.name}</div>
+								<div
+									class=" self-center text-[15px] font-medium truncate text-gray-800 dark:text-gray-100"
+								>
+									{$user?.name}
+								</div>
+								<ChevronDown
+									className="size-4 ml-2 shrink-0 text-gray-500 transition group-hover:text-gray-700 dark:group-hover:text-gray-300"
+									strokeWidth="2"
+								/>
 							</button>
 						</UserMenu>
 					{/if}
