@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d9e4fa"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <!-- sparkles -->
+    <g stroke="#4a86ee" stroke-width="3" stroke-linecap="round">
+      <path d="M17 44l6 5"/>
+      <path d="M10 62h8"/>
+      <path d="M17 80l6-4"/>
+    </g>
+    <!-- body -->
+    <ellipse cx="64" cy="122" rx="30" ry="16" fill="#ffffff"/>
+    <ellipse cx="64" cy="122" rx="30" ry="16" fill="none" stroke="#b9cdf3" stroke-width="2"/>
+    <ellipse cx="64" cy="112" rx="14" ry="5" fill="#d9e4fa"/>
+    <!-- ear cups -->
+    <rect x="22" y="62" width="14" height="28" rx="7" fill="#1f4fc8"/>
+    <rect x="92" y="62" width="14" height="28" rx="7" fill="#1f4fc8"/>
+    <!-- head -->
+    <rect x="28" y="46" width="72" height="60" rx="27" fill="url(#face)" stroke="#b9cdf3" stroke-width="1.5"/>
+    <!-- visor -->
+    <rect x="35" y="57" width="58" height="36" rx="18" fill="#14286b"/>
+    <!-- happy eyes + smile -->
+    <path d="M46 76q6-10 12 0" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+    <path d="M70 76q6-10 12 0" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+    <path d="M56 81q8 7 16 0" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>
+    <!-- graduation cap -->
+    <path d="M38 40v9c0 5 11 8 26 8s26-3 26-8v-9z" fill="#14286b"/>
+    <path d="M64 14L22 31l42 17 42-17z" fill="#1c3a92"/>
+    <path d="M64 14L22 31l42 17z" fill="#14286b"/>
+    <path d="M100 34v14" stroke="#fdb813" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M97 48h6l-1 8h-4z" fill="#fdb813"/>
+  </g>
+</svg>

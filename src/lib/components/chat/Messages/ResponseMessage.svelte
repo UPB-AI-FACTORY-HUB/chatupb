@@ -661,11 +661,11 @@
 	>
 		<div class={`shrink-0 ltr:mr-3 rtl:ml-3 hidden @lg:flex`}>
 			<div
-				class="flex size-10 items-center justify-center rounded-full bg-white ring-1 ring-upb-100 shadow-sm dark:bg-gray-850 dark:ring-gray-800"
+				class="group isolate size-11 overflow-hidden rounded-full border-2 border-upb-200 bg-gradient-to-b from-upb-50 to-upb-200 shadow-sm dark:border-gray-700 dark:from-gray-800 dark:to-gray-850"
 			>
 				<img
-					src="{WEBUI_BASE_URL}/static/mascot.png"
-					class="size-8 object-contain assistant-message-profile-image"
+					src="{WEBUI_BASE_URL}/static/assistant.svg"
+					class="size-full assistant-message-profile-image transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110 group-hover:-rotate-6 motion-reduce:transition-none motion-reduce:group-hover:transform-none"
 					alt=""
 					aria-hidden="true"
 					draggable="false"
