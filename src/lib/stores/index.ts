@@ -289,6 +289,7 @@ type Config = {
 	name: string;
 	version: string;
 	default_locale: string;
+	maintenance?: { enabled: boolean; message: string };
 	default_models: string;
 	default_prompt_suggestions: PromptSuggestion[];
 	features: {

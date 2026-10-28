@@ -1662,6 +1662,10 @@ ENABLE_PASSWORD_AUTH = os.getenv('ENABLE_PASSWORD_AUTH', 'True').lower() == 'tru
 
 DEFAULT_LOCALE = os.getenv('DEFAULT_LOCALE', '')
 
+# When true, the UI shows a maintenance screen instead of the app.
+MAINTENANCE_MODE = os.getenv('MAINTENANCE_MODE', 'False').lower() == 'true'
+MAINTENANCE_MESSAGE = os.getenv('MAINTENANCE_MESSAGE', '')
+
 DEFAULT_MODELS = os.getenv('DEFAULT_MODELS', None)
 
 DEFAULT_PINNED_MODELS = os.getenv('DEFAULT_PINNED_MODELS', None)

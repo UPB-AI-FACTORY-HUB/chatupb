@@ -45,6 +45,8 @@ from open_webui.config import (
     CACHE_DIR,
     CORS_ALLOW_ORIGIN,
     DEFAULT_LOCALE,
+    MAINTENANCE_MESSAGE,
+    MAINTENANCE_MODE,
     ENABLE_ADMIN_ANALYTICS,
     # Admin
     ENABLE_ADMIN_CHAT_ACCESS,
@@ -2157,6 +2159,7 @@ async def get_app_config(request: Request):
         'name': app.state.WEBUI_NAME,
         'version': VERSION,
         'default_locale': str(DEFAULT_LOCALE),
+        'maintenance': {'enabled': MAINTENANCE_MODE, 'message': MAINTENANCE_MESSAGE},
         'oauth': {
             # Hide providers (and thus the login buttons / auto-redirect) when OAuth
             # is disabled, without clearing the admin's provider configuration.

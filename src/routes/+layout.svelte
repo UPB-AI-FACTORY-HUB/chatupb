@@ -74,6 +74,7 @@
 	import NotificationToast from '$lib/components/NotificationToast.svelte';
 	import AppSidebar from '$lib/components/app/AppSidebar.svelte';
 	import SyncStatsModal from '$lib/components/chat/Settings/SyncStatsModal.svelte';
+	import Maintenance from '$lib/components/common/Maintenance.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import { getOutputText } from '$lib/components/chat/Messages/structuredOutput';
 	import { getUserSettings } from '$lib/apis/users';
@@ -1314,7 +1315,9 @@
 {/if}
 
 {#if loaded}
-	{#if $isApp}
+	{#if $config?.maintenance?.enabled}
+		<Maintenance message={$config.maintenance.message} />
+	{:else if $isApp}
 		<div class="flex flex-row h-screen">
 			<AppSidebar />
 
